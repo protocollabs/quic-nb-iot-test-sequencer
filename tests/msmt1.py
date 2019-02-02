@@ -1,7 +1,7 @@
-import tests.msmtSetup as msmtSetup
+import shared
 
 
-def main():
+def main(ctx):
 	print("msmt1 here!")
-	msmtSetup.prepare_mapago()
+	shared.prepare_mapago(ctx)
 
