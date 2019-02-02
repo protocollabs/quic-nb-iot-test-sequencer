@@ -17,3 +17,12 @@ aptitude install paramiko
 Please make sure you setuped every host and distributed the ssh keys. Ssh
 without password.
 
+## Sudo
+
+Sudo must be configured to allow execution off all command without a password
+prompt.
+
+```
+# /etc/sudoers file here FIXME
+```
+
