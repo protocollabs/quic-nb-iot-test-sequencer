@@ -4,8 +4,7 @@ import os
 import types
 import json
 
-from tests import msmt1
-from tests import msmt2
+from tests import throughput_max
 
 CONFIG_NAME = 'network.conf'
 
@@ -31,12 +30,12 @@ def config_load():
 def context_init():
     ctx = types.SimpleNamespace()
     ctx.config = config_load()
+    return ctx
 
 def main():
     ctx = context_init()
     update_software(ctx)
-    msmt1.main(ctx)
-    msmt2.main(ctx)
+    throughput_max.main(ctx)
 
 
 if __name__ == '__main__':

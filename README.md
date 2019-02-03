@@ -14,8 +14,20 @@ aptitude install paramiko
 
 ## Preshared Keys
 
-Please make sure you setuped every host and distributed the ssh keys. Ssh
-without password.
+Please make sure you setuped every host and distributed the ssh keys.
+Remember the password.
+
+```
+ssh-keygen -t rsa
+```
+
+Verify that everything works after key verification:
+
+```
+# ssh-agent should already be started
+ssh-add
+ssh hostname
+```
 
 ## Sudo
 
