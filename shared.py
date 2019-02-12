@@ -30,20 +30,40 @@ def netem(ctx, hostname, interfaces=[], rate='100kbit', loss='0', delay='0'):
 
 def mapago_reset(ctx, hostname):
     print('\nReseting mapago on {}'.format(ctx.config[hostname]['ip-ctrl']))
-
-    cmd = "pidof ./mapago-server"
-    stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
-    # debug print(stdout, stderr)
-
-    pid = stdout[0]
-    cmd = "kill -9 " + pid
-    # print("\nexecuting cmd: {}".format(cmd))
+    cmd = "ps -ef | grep \"mapago-server\" | grep -v grep | awk \'{print $2}\'"
 
     stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
-    print(stdout, stderr)
+    # debug print("running mapagos have pid: {}".format(stdout))
 
-def prepare_server(ctx):
+    if stdout:
+        for pid in stdout:
+            print("\nkilling mapago with pid: {}".format(pid))
+            cmd = "kill -9 " + pid
+            stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
+            print(stdout, stderr)
+    else: 
+        print("\nNo mapago-servers to kill!")
+
+def prepare_server(ctx, params):
     print("Preparing server")
+
+    # determine gobin
+    stdout, stderr = ssh_execute(ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
+
+    if stdout:
+        cmd_str = stdout[0].rstrip() + '/mapago-server'
+        print("starting server binary. pwd is: {}".format(cmd_str))
+        param_str = ''
+
+        for param in params:
+            param_str += param + ' ' + params[param] + ' '
+
+        cmd_str += ' '
+        cmd_str += param_str
+
+        ssh_execute(ctx, 'gamma', cmd_str, background=True)
+    else:
+        raise Exception('\nCould not determine GOBIN')
 
 
 def prepare_client(ctx):
@@ -94,10 +114,14 @@ def ssh_execute(ctx, hostname, command, timeout=10, background=False):
         if background:
             transport = ssh.get_transport()
             channel = transport.open_session()
+
             # what does this
-            cmd = '{} > /dev/null 2>&1 &'.format(cmd)
+            command = '{} > /dev/null 2>&1 &'.format(command)
             channel.exec_command(command)
+            
             return None, None
+
+
         else:
             stdin, stdout, stderr = ssh.exec_command(command)
             # Wait for the command to terminate

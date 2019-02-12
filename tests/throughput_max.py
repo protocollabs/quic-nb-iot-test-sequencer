@@ -4,6 +4,8 @@ import shared
 def main(ctx):
     print('current test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
+    srv_params = {}
+    client_params = {}
 
     # check that beta and gamma are reachable
     for host in remoteHosts:
@@ -20,12 +22,12 @@ def main(ctx):
     shared.netem_reset(ctx, 'beta', interfaces=interfaces)
 
     # Note in this sceario we dont need to adjust netem to a specific setting
-    shared.mapago_reset(ctx, 'gamma',)
+    shared.mapago_reset(ctx, 'gamma')
 
-    # FIXME: probably $HOME is not expanded, please check!
-    cmd = "$HOME/gobin/mapago-server"
+    srv_params['-uc-listen-addr'] = '127.0.0.1'
+    srv_params['-port'] = '64321'
+    shared.prepare_server(ctx, srv_params)
 
-    shared.ssh_execute(ctx, 'gamma', cmd, background=True)
     # this should run now (please login into gamma, and
     # call ps
 
