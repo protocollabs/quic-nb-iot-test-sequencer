@@ -7,16 +7,16 @@ yourPw = "yourpasswd"
 def prepare_mapago(ctx):
     print("Preparing mapago")
 
-
 def netem_reset(ctx, hostname, interfaces):
-    print('reset interfaces: {}'.format(interfaces))
+    print('\nReset netem on interfaces {} at {}'.format(interfaces, ctx.config[hostname]['ip-ctrl']))
     for interface in interfaces:
-        cmd = 'tc qdisc del dev {} root'.format(interface)
-        out, err = ssh_execute(ctx, hostname, cmd, 10)
-        print(out)
-        print(err)
+        cmd = 'sudo tc qdisc del dev {} root'.format(interface)
+        # print("\nexecuting cmd: {}".format(cmd))
+        stdout, stderr = ssh_execute(ctx, hostname, cmd, 10)
+        print(stdout, stderr)
 
 
+# All Interfaces must be configured to rate 
 def netem(ctx, hostname, interfaces=[], rate='100kbit', loss='0', delay='0'):
     netem_reset(ctx, hostname, interfaces)
     ip_ctrl = ctx.config[hostname]['ip-ctrl']
@@ -28,6 +28,19 @@ def netem(ctx, hostname, interfaces=[], rate='100kbit', loss='0', delay='0'):
         print(out)
         print(err)
 
+def mapago_reset(ctx, hostname):
+    print('\nReseting mapago on {}'.format(ctx.config[hostname]['ip-ctrl']))
+
+    cmd = "pidof ./mapago-server"
+    stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
+    # debug print(stdout, stderr)
+
+    pid = stdout[0]
+    cmd = "kill -9 " + pid
+    # print("\nexecuting cmd: {}".format(cmd))
+
+    stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
+    print(stdout, stderr)
 
 def prepare_server(ctx):
     print("Preparing server")
@@ -41,13 +54,12 @@ def analyze_data(ctx):
     print("Calling matplotlib to analyze msmt results")
 
 def host_alive(ctx, hostname):
-    ''' check if hostname can be called at a host, this checks
-    network connectivity and ssh at the same time.
-    '''
+    print("\nChecking host {} with addr {}".format(hostname, ctx.config[hostname]['ip-ctrl']))
+
     cmd = 'hostname'
-    # CHECK functionality
-    out, err = ssh_execute(ctx, hostname, cmd)
-    print(out, err)
+    stdout, stderr = ssh_execute(ctx, hostname, cmd)
+    print(stdout, stderr)
+    
     return True
 
 
