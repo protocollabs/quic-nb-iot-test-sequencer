@@ -5,7 +5,7 @@ def main(ctx):
     print('current test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
     srv_params = {}
-    client_params = {}
+    clt_params = {}
 
     # check that beta and gamma are reachable
     for host in remoteHosts:
@@ -28,7 +28,17 @@ def main(ctx):
     srv_params['-port'] = '64321'
     shared.prepare_server(ctx, srv_params)
 
-    # this should run now (please login into gamma, and
-    # call ps
+    '''
+    '''
 
-    # ok, now start local client here. similar to other script
+    clt_params['-ctrl-addr'] = '127.0.0.1'
+    clt_params['-ctrl-protocol'] = 'tcp'
+    clt_params['-module'] = 'udp-throughput'
+    clt_params['-streams'] = '1'
+    clt_params['-addr'] = '127.0.0.1'
+    clt_params['-msmt-time'] = '15'
+    clt_params['-buffer-length'] = '1400'
+    msmt_results = shared.prepare_client(ctx, clt_params)
+
+    shared.analyze_data(msmt_results)
+   

@@ -1,6 +1,8 @@
 import os
 import paramiko
 import time
+import subprocess
+import json
 
 yourPw = "yourpasswd"
 
@@ -45,14 +47,14 @@ def mapago_reset(ctx, hostname):
         print("\nNo mapago-servers to kill!")
 
 def prepare_server(ctx, params):
-    print("Preparing server")
+    print("\nPreparing server")
 
     # determine gobin
     stdout, stderr = ssh_execute(ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
 
     if stdout:
         cmd_str = stdout[0].rstrip() + '/mapago-server'
-        print("starting server binary. pwd is: {}".format(cmd_str))
+       # debug print("starting server binary. pwd is: {}".format(cmd_str))
         param_str = ''
 
         for param in params:
@@ -66,12 +68,37 @@ def prepare_server(ctx, params):
         raise Exception('\nCould not determine GOBIN')
 
 
-def prepare_client(ctx):
-    print("Preparing client")
+def prepare_client(ctx, params):
+    print("\nPreparing client")
 
+    args = []
+    msmt_db = []
+    cmd_str = os.environ['GOBIN'] + '/mapago-client'
 
-def analyze_data(ctx):
-    print("Calling matplotlib to analyze msmt results")
+    args.append(cmd_str)
+
+    for param in params:
+        args.append(param)
+        args.append(params[param])
+
+    popen = subprocess.Popen(tuple(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen.wait()
+    output_stdout = popen.stdout.read()
+    output_stderr = popen.stderr.read()
+
+    if len(output_stderr) is not 0: 
+        raise Exception('\nMapago-client return STDERR! Somethings broken!')        
+
+    lines_json = output_stdout.decode("utf-8")
+    for line_json in lines_json.splitlines():
+        msmt_db.append(json.loads(line_json))        
+
+    return msmt_db
+
+def analyze_data(msmt_results):
+    print("\nDUMMY: Calling matplotlib to analyze msmt results")
+    print("\nmsmt_res are: {}".format(msmt_results))
+
 
 def host_alive(ctx, hostname):
     print("\nChecking host {} with addr {}".format(hostname, ctx.config[hostname]['ip-ctrl']))
