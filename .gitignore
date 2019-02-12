@@ -173,4 +173,8 @@ tags
 # Persistent undo
 [._]*.un~
 
+#### images and stuff ###
+*.pdf
+
+
 # End of https://www.gitignore.io/api/vim,python,sublimetext
