@@ -6,6 +6,8 @@ import json
 import argparse
 
 from tests import throughput_max
+from tests import throughput_limited
+
 
 CONFIG_NAME = 'network.conf'
 
@@ -57,6 +59,10 @@ def main():
     # parse args
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="append path to your own config")
+    parser.add_argument(
+        "--testcase",
+        help="select testcase: throughput_max, throughput_limited")
+
     args = parser.parse_args()
 
     if args.config:
@@ -64,12 +70,16 @@ def main():
     else:
         ctx = context_init(None)
 
-    # TODO: This should call go get github.com/.../mapago => improvement
     update_software(ctx)
 
     print("\nreturned conf {}".format(ctx))
 
-    throughput_max.main(ctx)
+    if args.testcase == "throughput_max":
+        throughput_max.main(ctx)
+    elif args.testcase == "throughput_limited":
+        throughput_limited.main(ctx)
+    else:
+        raise Exception('\nunknown testcase!')
 
 
 if __name__ == '__main__':

@@ -20,17 +20,45 @@ def netem_reset(ctx, hostname, interfaces):
         print(stdout, stderr)
 
 
-# All Interfaces must be configured to rate 
-def netem(ctx, hostname, interfaces=[], rate='100kbit', loss='0', delay='0'):
-    netem_reset(ctx, hostname, interfaces)
-    ip_ctrl = ctx.config[hostname]['ip-ctrl']
+def netem_configure(ctx, hostname, interfaces=[], netem_params={'rate' : '100kbit'}):
+    supported_params = ['rate', 'loss', 'delay']
+    qdisc_id = 10
+    netem_used = False
+  
+    # 0. sweep through interfaces
     for interface in interfaces:
-        # TODO: format elements missing
-        cmd = 'sudo tc qdisc add dev {} root netem rate {}'
-        cmd = cmd.format(interface, rate)
-        out, err = ssh_execute(ctx, hostname, cmd, 10)
-        print(out)
-        print(err)
+        # 1. configure rate with tbf qdisc
+        tbf_cmd = 'sudo tc qdisc add dev {} root handle {} tbf rate {} burst {} limit {}'.format(interface, qdisc_id, netem_params['rate'], '1540', '1540000')
+        netem_cmd = 'sudo tc qdisc add dev {} parent {}: handle {} netem'.format(interface, qdisc_id, qdisc_id + 1) 
+
+        # 2. sweep through desired params
+        for param in netem_params:
+
+            # 3. check if param is in supported netem_params
+            if any(param in s for s in supported_params):
+                if param == 'rate':
+                    continue
+                elif param == 'loss':
+                    netem_used = True
+                    netem_cmd += " loss {}%".format(netem_params[param])
+                elif param == 'delay':
+                    netem_used = True
+                    netem_cmd += " delay {}ms".format(netem_params[param])
+                ### check for future params ###
+            else:
+                raise Exception('\nParam {} not supported!'.format(param))
+
+        # send tbf cmd
+        stdout, stderr = ssh_execute(ctx, hostname, tbf_cmd, 10)
+        print(stdout, stderr)
+
+        # send netem cmd
+        if netem_used:
+            stdout, stderr = ssh_execute(ctx, hostname, netem_cmd, 10)
+            print(stdout, stderr)
+
+        # increment handle for next interface
+        qdisc_id = qdisc_id + 10
 
 def mapago_reset(ctx, hostname):
     print('\nReseting mapago on {}'.format(ctx.config[hostname]['ip-ctrl']))

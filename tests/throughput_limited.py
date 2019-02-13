@@ -21,7 +21,10 @@ def main(ctx):
     
     shared.netem_reset(ctx, 'beta', interfaces=interfaces)
 
-    # Note in this sceario we dont need to adjust netem to a specific setting
+    # Here we need to adjust the scenario
+    shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate' : '100kbit', 'loss' : '0', 'delay' : '100'})
+
+
     shared.mapago_reset(ctx, 'gamma')
 
     srv_params['-uc-listen-addr'] = '127.0.0.1'
