@@ -70,10 +70,6 @@ def main():
     else:
         ctx = context_init(None)
 
-    update_software(ctx)
-
-    print("\nreturned conf {}".format(ctx))
-
     if args.testcase == "throughput_max":
         throughput_max.main(ctx)
     elif args.testcase == "throughput_limited":
