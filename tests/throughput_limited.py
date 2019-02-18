@@ -85,7 +85,6 @@ def analyze_data(msmt_results):
     plt.xlabel('Time [seconds]')
     fig.savefig("./data/msmtResult.pdf", bbox_inches='tight')
 
-
 def main(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
@@ -106,7 +105,10 @@ def main(ctx):
     
     shared.netem_reset(ctx, 'beta', interfaces=interfaces)
 
-    # Note in this sceario we dont need to adjust netem to a specific setting
+    # Here we need to adjust the scenario
+    shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate' : '100kbit', 'loss' : '0', 'delay' : '100'})
+
+
     shared.mapago_reset(ctx, 'gamma')
 
     srv_params['-uc-listen-addr'] = '127.0.0.1'
@@ -124,4 +126,7 @@ def main(ctx):
     msmt_results = shared.prepare_client(ctx, clt_params)
 
     analyze_data(msmt_results)
+
+
+
    
