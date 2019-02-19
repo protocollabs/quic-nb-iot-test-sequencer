@@ -6,11 +6,14 @@ import json
 
 PASSWD = "yourpasswd"
 
+
 def prepare_mapago(ctx):
     print("Preparing mapago")
 
+
 def netem_reset(ctx, hostname, interfaces):
-    print('\nReset netem on interfaces {} at {}'.format(interfaces, ctx.config[hostname]['ip-ctrl']))
+    print('\nReset netem on interfaces {} at {}'.format(
+        interfaces, ctx.config[hostname]['ip-ctrl']))
     for interface in interfaces:
         cmd = 'sudo tc qdisc del dev {} root'.format(interface)
         # print("\nexecuting cmd: {}".format(cmd))
@@ -18,15 +21,17 @@ def netem_reset(ctx, hostname, interfaces):
         print(stdout, stderr)
 
 
-def netem_configure(ctx, hostname, interfaces=[], netem_params={'rate' : '100kbit'}):
+def netem_configure(ctx, hostname, interfaces=[], netem_params={'rate': '100kbit'}):
     qdisc_id = 10
     netem_used = False
-  
+
     # 0. sweep through interfaces
     for interface in interfaces:
         # 1. configure rate with tbf qdisc
-        tbf_cmd = 'sudo tc qdisc add dev {} root handle {} tbf rate {} burst {} limit {}'.format(interface, qdisc_id, netem_params['rate'], '1540', '1540000')
-        netem_cmd = 'sudo tc qdisc add dev {} parent {}: handle {} netem'.format(interface, qdisc_id, qdisc_id + 1) 
+        tbf_cmd = 'sudo tc qdisc add dev {} root handle {} tbf rate {} burst {} limit {}'.format(
+            interface, qdisc_id, netem_params['rate'], '1540', '1540000')
+        netem_cmd = 'sudo tc qdisc add dev {} parent {}: handle {} netem'.format(
+            interface, qdisc_id, qdisc_id + 1)
 
         # 2. sweep through desired params
         for param in netem_params:
@@ -54,6 +59,7 @@ def netem_configure(ctx, hostname, interfaces=[], netem_params={'rate' : '100kbi
         # increment handle for next interface
         qdisc_id = qdisc_id + 10
 
+
 def mapago_reset(ctx, hostname):
     print('\nReseting mapago on {}'.format(ctx.config[hostname]['ip-ctrl']))
     cmd = "ps -ef | grep \"mapago-server\" | grep -v grep | awk \'{print $2}\'"
@@ -67,18 +73,20 @@ def mapago_reset(ctx, hostname):
             cmd = "kill -9 " + pid
             stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
             print(stdout, stderr)
-    else: 
+    else:
         print("\nNo mapago-servers to kill!")
+
 
 def prepare_server(ctx, params):
     print("\nPreparing server")
 
     # determine gobin
-    stdout, stderr = ssh_execute(ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
+    stdout, stderr = ssh_execute(
+        ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
 
     if stdout:
         cmd_str = stdout[0].rstrip() + '/mapago-server'
-       # debug print("starting server binary. pwd is: {}".format(cmd_str))
+        # debug print("starting server binary. pwd is: {}".format(cmd_str))
         param_str = ''
 
         for param in params:
@@ -105,30 +113,36 @@ def prepare_client(ctx, params):
         args.append(param)
         args.append(params[param])
 
-    popen = subprocess.Popen(tuple(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen = subprocess.Popen(
+        tuple(args),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
     popen.wait()
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
 
-    if len(output_stderr) is not 0: 
-        raise Exception('\nMapago-client return STDERR! Somethings broken!')        
+    if len(output_stderr) is not 0:
+        raise Exception('\nMapago-client return STDERR! Somethings broken!')
 
     lines_json = output_stdout.decode("utf-8")
+
     for line_json in lines_json.splitlines():
-        msmt_db.append(json.loads(line_json))        
+        msmt_db.append(json.loads(line_json))
 
     if len(msmt_db) < 1:
-        raise Exception('\nWe need at least 1 msmt point')        
+        raise Exception('\nWe need at least 1 msmt point')
 
     return msmt_db
 
+
 def host_alive(ctx, hostname):
-    print("\nChecking host {} with addr {}".format(hostname, ctx.config[hostname]['ip-ctrl']))
+    print("\nChecking host {} with addr {}".format(
+        hostname, ctx.config[hostname]['ip-ctrl']))
 
     cmd = 'hostname'
     stdout, stderr = ssh_execute(ctx, hostname, cmd)
     print(stdout, stderr)
-    
+
     return True
 
 
@@ -160,16 +174,17 @@ def ssh_execute(ctx, hostname, command, timeout=10, background=False):
         # use temporarily user/pwd not certificate
         ssh.connect(host, int(port), username, PASSWD)
 
+        ### background routine ###
         if background:
             transport = ssh.get_transport()
             channel = transport.open_session()
 
-            # what does this
+            # redirect all cmd output (stdout, stderr) to /dev/null
+            # we dont need nohup
             command = '{} > /dev/null 2>&1 &'.format(command)
             channel.exec_command(command)
-            
-            return None, None
 
+            return None, None
 
         else:
             stdin, stdout, stderr = ssh.exec_command(command)
@@ -188,3 +203,35 @@ def ssh_execute(ctx, hostname, command, timeout=10, background=False):
         if ssh is not None:
             # Close client connection.
             ssh.close()
+
+
+def check_remote_hosts(ctx):
+    remoteHosts = ['beta', 'gamma']
+
+    # check that beta and gamma are reachable
+    for host in remoteHosts:
+        avail = host_alive(ctx, host)
+
+        if not avail:
+            raise Exception("Host {} not available".format(host))
+
+# this settings should be identical for ALL type of measurements
+
+
+def set_global_msmt_settings():
+    srv_params = {}
+    clt_params = {}
+
+    srv_params['-uc-listen-addr'] = '192.186.23.3'
+    srv_params['-port'] = '64321'
+
+    clt_params['-ctrl-addr'] = '192.186.23.3'
+    clt_params['-ctrl-protocol'] = 'tcp'
+    clt_params['-module'] = 'udp-throughput'
+    clt_params['-streams'] = '1'
+    clt_params['-addr'] = '192.186.25.2'
+    clt_params['-msmt-time'] = '45'
+    clt_params['-buffer-length'] = '1400'
+    clt_params['-update-interval'] = '1'
+
+    return (srv_params, clt_params)
