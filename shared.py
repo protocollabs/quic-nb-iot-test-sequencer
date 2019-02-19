@@ -4,7 +4,7 @@ import time
 import subprocess
 import json
 
-PASSWD = "yourpasswd"
+PASSWD = "rpplinux"
 
 
 def prepare_mapago(ctx):
@@ -230,7 +230,7 @@ def set_global_msmt_settings():
     clt_params['-module'] = 'udp-throughput'
     clt_params['-streams'] = '1'
     clt_params['-addr'] = '192.186.25.2'
-    clt_params['-msmt-time'] = '45'
+    clt_params['-msmt-time'] = '30'
     clt_params['-buffer-length'] = '1400'
     clt_params['-update-interval'] = '1'
 

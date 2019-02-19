@@ -4,8 +4,8 @@ import datetime
 import matplotlib.pyplot as plt
 
 # copy & paste from evaluation.py
-def analyze_data(msmt_results):
-    # min and max will at the end of the next loop contain
+def analyze_data_plot_time(msmt_results):
+     # min and max will at the end of the next loop contain
     # the real min and max values
     datetime_min = datetime.datetime(4000, 1, 1)
     datetime_max = datetime.datetime(1, 1, 1)
@@ -30,17 +30,17 @@ def analyze_data(msmt_results):
         for stream in entry:
             time = datetime.datetime.strptime(
                 stream['ts-start'], '%Y-%m-%dT%H:%M:%S.%f')
-
+        
             if time < datetime_min:
                 datetime_min = time
-
-                if not prev_datetime_max_set:
+            
+                if prev_datetime_max_set == False:
                     prev_datetime_max = datetime_min
-                    prev_datetime_max_set = True
+                    prev_datetime_max_set = True 
 
             time = datetime.datetime.strptime(
                 stream['ts-end'], '%Y-%m-%dT%H:%M:%S.%f')
-
+        
             if time > datetime_max:
                 datetime_max = time
 
@@ -79,9 +79,6 @@ def analyze_data(msmt_results):
         x.append(i[0])
         y.append(i[1])
 
-    # debug print("\nabsizze: ", x)
-    # debug print("\nordinate: ", y)
-
     fig = plt.figure()
     plt.plot(x, y)
     plt.ylabel('Throughput [MBits/s]')
@@ -89,12 +86,57 @@ def analyze_data(msmt_results):
     fig.savefig("./data/msmtResult.pdf", bbox_inches='tight')
 
 
+def analyze_data(msmt_results):
+    datetime_min = datetime.datetime(4000, 1, 1)
+    datetime_max = datetime.datetime(1, 1, 1)
+    bytes_rx = 0
+    prev_datetime_max = datetime.datetime(1, 1, 1)
+    prev_datetime_max_set = False
+
+    for entry in msmt_results:
+        bytes_measurement_point = 0
+
+        # one entry can have multiple streams, so iterate over the
+        # streams now
+        for stream in entry:
+            time = datetime.datetime.strptime(
+                stream['ts-start'], '%Y-%m-%dT%H:%M:%S.%f')
+
+            if time < datetime_min:
+                datetime_min = time
+
+                if not prev_datetime_max_set:
+                    prev_datetime_max = datetime_min
+                    prev_datetime_max_set = True
+
+            time = datetime.datetime.strptime(
+                stream['ts-end'], '%Y-%m-%dT%H:%M:%S.%f')
+
+            if time > datetime_max:
+                datetime_max = time
+
+            bytes_measurement_point += int(stream['bytes'])
+
+        bytes_rx = bytes_measurement_point
+
+     
+    measurement_length = (datetime_max - datetime_min).total_seconds()
+    bytes_sec = bytes_rx / measurement_length
+    Mbits_sec = (bytes_sec * 8) / 10**6
+    Kbits_sec = (bytes_sec * 8) / 10**3
+    print('overall bandwith: {} bytes/sec'.format(bytes_sec))
+    print('overall bandwith: {} Mbits/sec'.format(Mbits_sec))
+    print('overall bandwith: {} Kbits/sec'.format(Kbits_sec))
+    print('measurement length: {} sec]'.format(measurement_length))
+    print('received: {} bytes]'.format(bytes_rx))
+
+
 def main(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     supported_protocols = ["tcp", "tcp-tls", "quic", "udp"]
     # TODO maybe as program parameters
     # start, stop, step => maybe as params
-    start_rate = 10
+    start_rate = 100
     stop_rate = 500
     step_rate = 10
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
@@ -118,10 +160,10 @@ def main(ctx):
         # TODO: We can vary only over one feature ATM
 
         for rate in analyzing_rates:
-            print("\nconfiguring rate to: {}".format(str(rate)))
+            print("\n------ configuring rate to: {} --------".format(str(rate)))
 
             for iteration in iterations:
-                print("\n {}. iteration".format(iteration))
+                print("\n -------- {}. iteration -------".format(iteration))
 
                 # TODO: we could move that also up => for all iterations same
                 shared.netem_reset(ctx, 'beta', interfaces=interfaces)
@@ -133,5 +175,5 @@ def main(ctx):
 
                 shared.prepare_server(ctx, global_settings[0])
                 msmt_results = shared.prepare_client(ctx, global_settings[1])
-                print("\nmsmt_results of this iteration: ", msmt_results)
-    
+
+                iteration_result = analyze_data_plot_time(msmt_results)
