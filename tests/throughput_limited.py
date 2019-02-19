@@ -30,17 +30,17 @@ def analyze_data(msmt_results):
         for stream in entry:
             time = datetime.datetime.strptime(
                 stream['ts-start'], '%Y-%m-%dT%H:%M:%S.%f')
-        
+
             if time < datetime_min:
                 datetime_min = time
-            
-                if prev_datetime_max_set == False:
+
+                if not prev_datetime_max_set:
                     prev_datetime_max = datetime_min
-                    prev_datetime_max_set = True 
+                    prev_datetime_max_set = True
 
             time = datetime.datetime.strptime(
                 stream['ts-end'], '%Y-%m-%dT%H:%M:%S.%f')
-        
+
             if time > datetime_max:
                 datetime_max = time
 
@@ -79,54 +79,59 @@ def analyze_data(msmt_results):
         x.append(i[0])
         y.append(i[1])
 
+    # debug print("\nabsizze: ", x)
+    # debug print("\nordinate: ", y)
+
     fig = plt.figure()
     plt.plot(x, y)
     plt.ylabel('Throughput [MBits/s]')
     plt.xlabel('Time [seconds]')
     fig.savefig("./data/msmtResult.pdf", bbox_inches='tight')
 
+
 def main(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
-    remoteHosts = ['beta', 'gamma']
-    srv_params = {}
-    clt_params = {}
+    supported_protocols = ["tcp", "tcp-tls", "quic", "udp"]
+    # TODO maybe as program parameters
+    # start, stop, step => maybe as params
+    start_rate = 10
+    stop_rate = 500
+    step_rate = 10
+    analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
 
-    # check that beta and gamma are reachable
-    for host in remoteHosts:
-        avail = shared.host_alive(ctx, host)
+    num_iterations = 10
+    iterations = list(range(num_iterations))
+    # debug print("\n we are anylzing the following rates: ", analyzing_rates)
 
-        if not avail:
-            raise Exception("Host {} not available".format(host))
+    shared.check_remote_hosts(ctx)
 
-    # reset netem, don't know what was previouly configured
+    global_settings = shared.set_global_msmt_settings()
+    # debug print("\nsrc_settings: {}, clt_setting: {}".format(global_settings[0], global_settings[1]))
+
     beta_iface_to_alpha = ctx.config['beta']['netem-interfaces-to-alpha']
     beta_iface_to_gamma = ctx.config['beta']['netem-interfaces-to-gamma']
     interfaces = [beta_iface_to_alpha, beta_iface_to_gamma]
+
+    # debug print("\nlen of supportes protos: {}".format(len(supported_protocols)))
+    for protocol in supported_protocols:
+        print("\nanalyzing: {}".format(protocol))
+        # TODO: We can vary only over one feature ATM
+
+        for rate in analyzing_rates:
+            print("\nconfiguring rate to: {}".format(str(rate)))
+
+            for iteration in iterations:
+                print("\n {}. iteration".format(iteration))
+
+                # TODO: we could move that also up => for all iterations same
+                shared.netem_reset(ctx, 'beta', interfaces=interfaces)
+                shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate': str(rate), 'loss': '0', 'delay': '0'})
+
+                # TODO: maybe this is good for all iteration => if the server
+                # crashes
+                shared.mapago_reset(ctx, 'gamma')
+
+                shared.prepare_server(ctx, global_settings[0])
+                msmt_results = shared.prepare_client(ctx, global_settings[1])
+                print("\nmsmt_results of this iteration: ", msmt_results)
     
-    shared.netem_reset(ctx, 'beta', interfaces=interfaces)
-
-    # Here we need to adjust the scenario
-    shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate' : '100kbit', 'loss' : '0', 'delay' : '100'})
-
-
-    shared.mapago_reset(ctx, 'gamma')
-
-    srv_params['-uc-listen-addr'] = '127.0.0.1'
-    srv_params['-port'] = '64321'
-    shared.prepare_server(ctx, srv_params)
-
-
-    clt_params['-ctrl-addr'] = '127.0.0.1'
-    clt_params['-ctrl-protocol'] = 'tcp'
-    clt_params['-module'] = 'udp-throughput'
-    clt_params['-streams'] = '1'
-    clt_params['-addr'] = '127.0.0.1'
-    clt_params['-msmt-time'] = '15'
-    clt_params['-buffer-length'] = '1400'
-    msmt_results = shared.prepare_client(ctx, clt_params)
-
-    analyze_data(msmt_results)
-
-
-
-   
