@@ -105,6 +105,7 @@ def prepare_client(ctx, params):
         args.append(param)
         args.append(params[param])
 
+    print("\nargs of client", args)
     popen = subprocess.Popen(tuple(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
     output_stdout = popen.stdout.read()
@@ -164,13 +165,10 @@ def ssh_execute(ctx, hostname, command, timeout=10, background=False):
             transport = ssh.get_transport()
             channel = transport.open_session()
 
-            # what does this
             command = '{} > /dev/null 2>&1 &'.format(command)
             channel.exec_command(command)
             
             return None, None
-
-
         else:
             stdin, stdout, stderr = ssh.exec_command(command)
             # Wait for the command to terminate

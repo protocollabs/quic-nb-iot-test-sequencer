@@ -2,10 +2,106 @@ import os
 import shared
 import datetime
 import matplotlib.pyplot as plt
+from time import sleep
+import numpy as np
 
 # copy & paste from evaluation.py
-def analyze_data_plot_time(msmt_results):
-     # min and max will at the end of the next loop contain
+
+def run_test(ctx):
+    print('running test: {}'.format(os.path.basename(__file__)[:-3]))
+    remoteHosts = ['beta', 'gamma']
+    srv_params = {}
+    clt_params = {}
+    supported_protocols = ["tcp-throughput", "udp-throughput", "quic-throughput"]
+    # supported_protocols = ["tcp-throughput"]
+    
+    # TODO maybe as program parameters
+    start_rate = 50
+    stop_rate = 500
+    step_rate = 50
+    analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
+    num_iterations = 1
+    iterations = list(range(num_iterations))
+    
+    for host in remoteHosts:
+        avail = shared.host_alive(ctx, host)
+
+        if not avail:
+            raise Exception("Host {} not available".format(host))
+
+    beta_iface_to_alpha = ctx.config['beta']['netem-interfaces-to-alpha']
+    beta_iface_to_gamma = ctx.config['beta']['netem-interfaces-to-gamma']
+    interfaces = [beta_iface_to_alpha, beta_iface_to_gamma]
+
+    srv_params['-uc-listen-addr'] = '192.186.23.3'
+    srv_params['-port'] = '64321'
+
+    clt_params['-ctrl-addr'] = '192.186.23.3'
+    clt_params['-ctrl-protocol'] = 'tcp'
+    clt_params['-streams'] = '1'
+    clt_params['-addr'] = '192.186.25.2'
+    clt_params['-msmt-time'] = '30'
+    clt_params['-buffer-length'] = '1400'
+    clt_params['-update-interval'] = '1'
+
+    total_results = {} 
+
+    for protocol in supported_protocols:
+        print("\n-------- analyzing: {} --------".format(protocol))
+        # TODO: move mapago_reset, prepare_server, netem_reset up
+        shared.mapago_reset(ctx, 'gamma')
+        shared.prepare_server(ctx, srv_params)
+
+        x = []
+        y = []
+
+        for rate in analyzing_rates:
+            ''' We need to reset the netem server and reconfigure'''
+            print("\n------ configuring rate to: {} --------".format(rate))
+
+            shared.netem_reset(ctx, 'beta', interfaces=interfaces)
+            shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate': '{}kbit'.format(rate)})
+            
+            # stores all iteration results regarding a specific rate
+            kbits_per_rate = []
+
+            for iteration in iterations:
+                print("\n -------- {}. iteration -------".format(iteration))
+
+                clt_params['-module'] = '{}'.format(protocol)
+                print("\n starting module: {}".format(clt_params['-module']))
+                msmt_results = shared.prepare_client(ctx, clt_params)
+                kbits_iter = analyze_data(msmt_results)
+                kbits_per_rate.append(kbits_iter)
+
+            kbits_per_rate_normalized = 0
+
+            # account all iters
+            for kbits_iter in kbits_per_rate:
+                kbits_per_rate_normalized += kbits_iter  
+            # 
+            kbits_per_rate_normalized = kbits_per_rate_normalized / num_iterations
+            print("\n mean kbits per rate: {}".format(kbits_per_rate_normalized))
+
+            # future x axis (rates)
+            x.append(rate)
+            
+            # future y axis (throughput)
+            y.append(kbits_per_rate_normalized)
+
+        # we are with this protocol finished add to total results
+        total_results[protocol] = (x,y)
+        print(total_results)
+         
+        print("\nsleeping")
+        sleep(5)
+        print("\n next protocol")
+
+    plot_data(total_results)
+
+
+def analyze_data(msmt_results):
+    # min and max will at the end of the next loop contain
     # the real min and max values
     datetime_min = datetime.datetime(4000, 1, 1)
     datetime_max = datetime.datetime(1, 1, 1)
@@ -55,10 +151,7 @@ def analyze_data_plot_time(msmt_results):
 
         # this works only if data is send immediately after prev_datetime_max
         # or we pay attention to a period where nothing is transmitted
-        duration_of_period = (datetime_max - prev_datetime_max).total_seconds()
         prev_datetime_max = datetime_max
-        throughput_of_period = mbits_per_period / duration_of_period
-        normalized.append([curr_msmt_time, throughput_of_period])
 
     measurement_length = (datetime_max - datetime_min).total_seconds()
     bytes_sec = bytes_rx / measurement_length
@@ -70,110 +163,35 @@ def analyze_data_plot_time(msmt_results):
     print('measurement length: {} sec]'.format(measurement_length))
     print('received: {} bytes]'.format(bytes_rx))
 
-    # now plotting starts, not really fancy
+    return Kbits_sec
 
-    # normalize date to start with just 0 sec and not 2018-01-23 ...
-    x = []
-    y = []
-    for i in normalized:
-        x.append(i[0])
-        y.append(i[1])
-
+def plot_data(total_results):
     fig = plt.figure()
-    plt.plot(x, y)
-    plt.ylabel('Throughput [MBits/s]')
-    plt.xlabel('Time [seconds]')
-    fig.savefig("./data/msmtResult.pdf", bbox_inches='tight')
 
+    x_tcp = total_results["tcp-throughput"][0]
+    y_tcp = total_results["tcp-throughput"][1]
+    # print(x_tcp)
+    # print(y_tcp)
 
-def analyze_data(msmt_results):
-    datetime_min = datetime.datetime(4000, 1, 1)
-    datetime_max = datetime.datetime(1, 1, 1)
-    bytes_rx = 0
-    prev_datetime_max = datetime.datetime(1, 1, 1)
-    prev_datetime_max_set = False
+    x_udp = total_results["udp-throughput"][0]
+    y_udp = total_results["udp-throughput"][1]
+    x_quic = total_results["quic-throughput"][0]
+    y_quic = total_results["quic-throughput"][1]
+    
+    plt.plot(x_tcp, y_tcp, 'b-', label="TCP")
+    plt.plot(x_udp, y_udp, 'y-', label="UDP")
+    plt.plot(x_quic, y_quic, 'r-', label="QUIC")
+   
+    plt.ylabel('Throughput [KBits/s]')
+    plt.xlabel('rate [KBit/s]')
 
-    for entry in msmt_results:
-        bytes_measurement_point = 0
-
-        # one entry can have multiple streams, so iterate over the
-        # streams now
-        for stream in entry:
-            time = datetime.datetime.strptime(
-                stream['ts-start'], '%Y-%m-%dT%H:%M:%S.%f')
-
-            if time < datetime_min:
-                datetime_min = time
-
-                if not prev_datetime_max_set:
-                    prev_datetime_max = datetime_min
-                    prev_datetime_max_set = True
-
-            time = datetime.datetime.strptime(
-                stream['ts-end'], '%Y-%m-%dT%H:%M:%S.%f')
-
-            if time > datetime_max:
-                datetime_max = time
-
-            bytes_measurement_point += int(stream['bytes'])
-
-        bytes_rx = bytes_measurement_point
-
-     
-    measurement_length = (datetime_max - datetime_min).total_seconds()
-    bytes_sec = bytes_rx / measurement_length
-    Mbits_sec = (bytes_sec * 8) / 10**6
-    Kbits_sec = (bytes_sec * 8) / 10**3
-    print('overall bandwith: {} bytes/sec'.format(bytes_sec))
-    print('overall bandwith: {} Mbits/sec'.format(Mbits_sec))
-    print('overall bandwith: {} Kbits/sec'.format(Kbits_sec))
-    print('measurement length: {} sec]'.format(measurement_length))
-    print('received: {} bytes]'.format(bytes_rx))
-
+    plt.xticks(np.arange(min(x_tcp), max(x_tcp)+ 1, 1.0))
+    plt.legend()
+    # TODO: Create folder for each msmt
+    fig.savefig("./data/throughputLimited.pdf", bbox_inches='tight')
 
 def main(ctx):
-    print('running test: {}'.format(os.path.basename(__file__)[:-3]))
-    supported_protocols = ["tcp", "tcp-tls", "quic", "udp"]
-    # TODO maybe as program parameters
-    # start, stop, step => maybe as params
-    start_rate = 100
-    stop_rate = 500
-    step_rate = 10
-    analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
+    run_test(ctx)
 
-    num_iterations = 10
-    iterations = list(range(num_iterations))
-    # debug print("\n we are anylzing the following rates: ", analyzing_rates)
 
-    shared.check_remote_hosts(ctx)
-
-    global_settings = shared.set_global_msmt_settings()
-    # debug print("\nsrc_settings: {}, clt_setting: {}".format(global_settings[0], global_settings[1]))
-
-    beta_iface_to_alpha = ctx.config['beta']['netem-interfaces-to-alpha']
-    beta_iface_to_gamma = ctx.config['beta']['netem-interfaces-to-gamma']
-    interfaces = [beta_iface_to_alpha, beta_iface_to_gamma]
-
-    # debug print("\nlen of supportes protos: {}".format(len(supported_protocols)))
-    for protocol in supported_protocols:
-        print("\nanalyzing: {}".format(protocol))
-        # TODO: We can vary only over one feature ATM
-
-        for rate in analyzing_rates:
-            print("\n------ configuring rate to: {} --------".format(str(rate)))
-
-            for iteration in iterations:
-                print("\n -------- {}. iteration -------".format(iteration))
-
-                # TODO: we could move that also up => for all iterations same
-                shared.netem_reset(ctx, 'beta', interfaces=interfaces)
-                shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate': str(rate), 'loss': '0', 'delay': '0'})
-
-                # TODO: maybe this is good for all iteration => if the server
-                # crashes
-                shared.mapago_reset(ctx, 'gamma')
-
-                shared.prepare_server(ctx, global_settings[0])
-                msmt_results = shared.prepare_client(ctx, global_settings[1])
-
-                iteration_result = analyze_data_plot_time(msmt_results)
+   
