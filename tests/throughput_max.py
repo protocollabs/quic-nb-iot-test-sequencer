@@ -17,7 +17,7 @@ def run_test(ctx):
     stop_cores = 8
     step_rate = 1
     analyzing_cores = list(range(start_cores, stop_cores + step_rate, step_rate))
-    num_iterations = 4
+    num_iterations = 1
     iterations = list(range(num_iterations))
     
     for host in remoteHosts:
@@ -33,14 +33,15 @@ def run_test(ctx):
     srv_params['-uc-listen-addr'] = '192.186.23.3'
     srv_params['-port'] = '64321'
 
-    clt_params['-ctrl-addr'] = '192.186.23.3'
-    clt_params['-ctrl-protocol'] = 'tcp'
+    clt_params['-control-addr'] = '192.186.23.3'
+    clt_params['-control-protocol'] = 'tcp'
     clt_params['-addr'] = '192.186.25.2'
-    clt_params['-msmt-time'] = '60'
+    clt_params['-bytes'] = '140000000'
+    clt_params['-deadline'] = '5'
     clt_params['-buffer-length'] = '1400'
-    # clt_params['-buffer-length'] = '64768'
     clt_params['-update-interval'] = '1'
 
+    clt_bytes = int(clt_params['-bytes'])
     total_results = {} 
 
     for protocol in supported_protocols:
@@ -65,7 +66,7 @@ def run_test(ctx):
                 print("\n starting module: {}".format(clt_params['-module']))
                 clt_params['-streams'] = '{}'.format(core)
                 msmt_results = shared.prepare_client(ctx, clt_params)
-                kbits_iter = analyze_data(msmt_results)
+                kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
                 kbits_per_core.append(kbits_iter)
 
             kbits_per_core_normalized = 0
@@ -93,7 +94,8 @@ def run_test(ctx):
 
     plot_data(total_results)
 
-def analyze_data(msmt_results):
+
+def analyze_data(msmt_results, protocol, clt_bytes):
     # min and max will at the end of the next loop contain
     # the real min and max values
     datetime_min = datetime.datetime(4000, 1, 1)
@@ -155,6 +157,13 @@ def analyze_data(msmt_results):
     print('overall bandwith: {} Kbits/sec'.format(Kbits_sec))
     print('measurement length: {} sec]'.format(measurement_length))
     print('received: {} bytes]'.format(bytes_rx))
+    
+    # check if msmt failed
+    if protocol == 'tcp-throughput' or protocol == 'quic-throughput':
+        print("we have to check if msmt did not crash")
+        if bytes_rx < clt_bytes:
+            print("\nmsmt has failed/crashed! Nothing transmitted within this iter! Try next iter!")
+            return 0
 
     return Mbits_sec
 
@@ -168,6 +177,7 @@ def plot_data(total_results):
 
     x_udp = total_results["udp-throughput"][0]
     y_udp = total_results["udp-throughput"][1]
+
     x_quic = total_results["quic-throughput"][0]
     y_quic = total_results["quic-throughput"][1]
     
@@ -181,8 +191,8 @@ def plot_data(total_results):
     plt.xticks(np.arange(min(x_tcp), max(x_tcp)+ 1, 1.0))
     plt.legend()
     # TODO: Create folder for each msmt
-    fig.savefig("./data/msmtResult8coresComplexMbits64kbuf.pdf", bbox_inches='tight')
 
+    fig.savefig("./data/throughputMaxTcpQuicUdpByteCount.pdf", bbox_inches='tight')
 
 def main(ctx):
     run_test(ctx)
