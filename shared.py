@@ -75,10 +75,10 @@ def prepare_server(ctx, params):
 
     # determine gobin
     stdout, stderr = ssh_execute(ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
-
+    
     if stdout:
-        cmd_str = stdout[0].rstrip() + '/mapago-server'
-       # debug print("starting server binary. pwd is: {}".format(cmd_str))
+        # we have to source the profile again or mapago-server wont find the envs
+        cmd_str = 'source /etc/profile; ' + stdout[0].rstrip() + '/mapago-server'
         param_str = ''
 
         for param in params:
@@ -86,6 +86,8 @@ def prepare_server(ctx, params):
 
         cmd_str += ' '
         cmd_str += param_str
+
+        # debug print("\nPrepare server: executing on server cmd: {}".format(cmd_str))
 
         ssh_execute(ctx, 'gamma', cmd_str, background=True)
     else:
@@ -111,10 +113,11 @@ def prepare_client(ctx, params):
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
 
-    if len(output_stderr) is not 0: 
+    if len(output_stderr) is not 0:
         raise Exception('\nMapago-client return STDERR! Somethings broken!')        
 
     lines_json = output_stdout.decode("utf-8")
+
     for line_json in lines_json.splitlines():
         msmt_db.append(json.loads(line_json))        
 
