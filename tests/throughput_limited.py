@@ -7,13 +7,18 @@ import numpy as np
 
 # copy & paste from evaluation.py
 
+
 def run_test(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
     srv_params = {}
     clt_params = {}
-    supported_protocols = ["tcp-throughput", "tcp-tls-throughput", "udp-throughput", "quic-throughput"]
-    
+    supported_protocols = [
+        "tcp-throughput",
+        "tcp-tls-throughput",
+        "udp-throughput",
+        "quic-throughput"]
+
     # TODO maybe as program parameters
     start_rate = 20
     stop_rate = 100
@@ -21,7 +26,7 @@ def run_test(ctx):
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
     num_iterations = 5
     iterations = list(range(num_iterations))
-    
+
     for host in remoteHosts:
         avail = shared.host_alive(ctx, host)
 
@@ -45,7 +50,7 @@ def run_test(ctx):
     clt_params['-update-interval'] = '1'
 
     clt_bytes = int(clt_params['-bytes'])
-    total_results = {} 
+    total_results = {}
 
     for protocol in supported_protocols:
         print("\n-------- analyzing: {} --------".format(protocol))
@@ -61,8 +66,10 @@ def run_test(ctx):
             print("\n------ configuring rate to: {} --------".format(rate))
 
             shared.netem_reset(ctx, 'beta', interfaces=interfaces)
-            shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate': '{}kbit'.format(rate)})
-            
+            shared.netem_configure(
+                ctx, 'beta', interfaces=interfaces, netem_params={
+                    'rate': '{}kbit'.format(rate)})
+
             # stores all iteration results regarding a specific rate
             kbits_per_rate = []
 
@@ -80,26 +87,28 @@ def run_test(ctx):
 
             # account all iters
             for kbits_iter in kbits_per_rate:
-                kbits_per_rate_normalized += kbits_iter  
-            # 
+                kbits_per_rate_normalized += kbits_iter
+            #
             kbits_per_rate_normalized = kbits_per_rate_normalized / num_iterations
-            print("\n mean kbits per rate: {}".format(kbits_per_rate_normalized))
+            print("\n mean kbits per rate: {}".format(
+                kbits_per_rate_normalized))
 
             # future x axis (rates)
             x.append(rate)
-            
+
             # future y axis (throughput)
             y.append(kbits_per_rate_normalized)
 
         # we are with this protocol finished add to total results
-        total_results[protocol] = (x,y)
+        total_results[protocol] = (x, y)
         print(total_results)
-         
+
         print("\nsleeping")
         sleep(5)
         print("\n next protocol")
 
     plot_data(total_results)
+
 
 def analyze_data(msmt_results, protocol, clt_bytes):
     # min and max will at the end of the next loop contain
@@ -127,17 +136,17 @@ def analyze_data(msmt_results, protocol, clt_bytes):
         for stream in entry:
             time = datetime.datetime.strptime(
                 stream['ts-start'], '%Y-%m-%dT%H:%M:%S.%f')
-        
+
             if time < datetime_min:
                 datetime_min = time
-            
-                if prev_datetime_max_set == False:
+
+                if not prev_datetime_max_set:
                     prev_datetime_max = datetime_min
-                    prev_datetime_max_set = True 
+                    prev_datetime_max_set = True
 
             time = datetime.datetime.strptime(
                 stream['ts-end'], '%Y-%m-%dT%H:%M:%S.%f')
-        
+
             if time > datetime_max:
                 datetime_max = time
 
@@ -163,15 +172,17 @@ def analyze_data(msmt_results, protocol, clt_bytes):
     print('overall bandwith: {} Kbits/sec'.format(Kbits_sec))
     print('measurement length: {} sec]'.format(measurement_length))
     print('received: {} bytes]'.format(bytes_rx))
-  
+
     # check if msmt failed: add tcp-tls-throughput
     if protocol == 'tcp-throughput' or protocol == 'quic-throughput' or protocol == 'tcp-tls-throughput':
         print("we have to check if msmt did not crash")
         if bytes_rx < clt_bytes:
-            print("\nmsmt has failed/crashed! Nothing transmitted within this iter! Try next iter!")
+            print(
+                "\nmsmt has failed/crashed! Nothing transmitted within this iter! Try next iter!")
             return 0
 
     return Kbits_sec
+
 
 def plot_data(total_results):
     fig = plt.figure()
@@ -185,19 +196,19 @@ def plot_data(total_results):
     y_udp = total_results["udp-throughput"][1]
     x_quic = total_results["quic-throughput"][0]
     y_quic = total_results["quic-throughput"][1]
-    
+
     plt.plot(x_tcp, y_tcp, 'b-', label="TCP")
     plt.plot(x_udp, y_udp, 'y-', label="UDP")
     plt.plot(x_quic, y_quic, 'r-', label="QUIC")
-   
+
     plt.ylabel('Throughput [KBits/s]')
     plt.xlabel('rate [KBit/s]')
 
-    plt.xticks(np.arange(min(x_tcp), max(x_tcp)+ 1, 1.0))
+    plt.xticks(np.arange(min(x_tcp), max(x_tcp) + 1, 1.0))
     plt.legend()
     # TODO: Create folder for each msmt
     fig.savefig("./data/throughputLimited.pdf", bbox_inches='tight')
 
+
 def main(ctx):
     run_test(ctx)
-   

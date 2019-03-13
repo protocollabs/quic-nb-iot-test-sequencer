@@ -6,11 +6,14 @@ import json
 
 PASSWD = "yourpasswd"
 
+
 def prepare_mapago(ctx):
     print("Preparing mapago")
 
+
 def netem_reset(ctx, hostname, interfaces):
-    print('\nReset netem on interfaces {} at {}'.format(interfaces, ctx.config[hostname]['ip-ctrl']))
+    print('\nReset netem on interfaces {} at {}'.format(
+        interfaces, ctx.config[hostname]['ip-ctrl']))
     for interface in interfaces:
         cmd = 'sudo tc qdisc del dev {} root'.format(interface)
         # print("\nexecuting cmd: {}".format(cmd))
@@ -18,15 +21,22 @@ def netem_reset(ctx, hostname, interfaces):
         print(stdout, stderr)
 
 
-def netem_configure(ctx, hostname, interfaces=[], netem_params={'rate' : '100kbit'}):
+def netem_configure(
+    ctx,
+    hostname,
+    interfaces=[],
+    netem_params={
+        'rate': '100kbit'}):
     qdisc_id = 10
     netem_used = False
-  
+
     # 0. sweep through interfaces
     for interface in interfaces:
         # 1. configure rate with tbf qdisc
-        tbf_cmd = 'sudo tc qdisc add dev {} root handle {} tbf rate {} burst {} limit {}'.format(interface, qdisc_id, netem_params['rate'], '1540', '1540000')
-        netem_cmd = 'sudo tc qdisc add dev {} parent {}: handle {} netem'.format(interface, qdisc_id, qdisc_id + 1) 
+        tbf_cmd = 'sudo tc qdisc add dev {} root handle {} tbf rate {} burst {} limit {}'.format(
+            interface, qdisc_id, netem_params['rate'], '1540', '1540000')
+        netem_cmd = 'sudo tc qdisc add dev {} parent {}: handle {} netem'.format(
+            interface, qdisc_id, qdisc_id + 1)
 
         # 2. sweep through desired params
         for param in netem_params:
@@ -54,6 +64,7 @@ def netem_configure(ctx, hostname, interfaces=[], netem_params={'rate' : '100kbi
         # increment handle for next interface
         qdisc_id = qdisc_id + 10
 
+
 def mapago_reset(ctx, hostname):
     print('\nReseting mapago on {}'.format(ctx.config[hostname]['ip-ctrl']))
     cmd = "ps -ef | grep \"mapago-server\" | grep -v grep | awk \'{print $2}\'"
@@ -67,18 +78,22 @@ def mapago_reset(ctx, hostname):
             cmd = "kill -9 " + pid
             stdout, stderr = ssh_execute(ctx, 'gamma', cmd, background=False)
             print(stdout, stderr)
-    else: 
+    else:
         print("\nNo mapago-servers to kill!")
+
 
 def prepare_server(ctx, params):
     print("\nPreparing server")
 
     # determine gobin
-    stdout, stderr = ssh_execute(ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
-    
+    stdout, stderr = ssh_execute(
+        ctx, 'gamma', "source /etc/profile; echo $GOBIN", background=False)
+
     if stdout:
-        # we have to source the profile again or mapago-server wont find the envs
-        cmd_str = 'source /etc/profile; ' + stdout[0].rstrip() + '/mapago-server'
+        # we have to source the profile again or mapago-server wont find the
+        # envs
+        cmd_str = 'source /etc/profile; ' + \
+            stdout[0].rstrip() + '/mapago-server'
         param_str = ''
 
         for param in params:
@@ -87,7 +102,8 @@ def prepare_server(ctx, params):
         cmd_str += ' '
         cmd_str += param_str
 
-        # debug print("\nPrepare server: executing on server cmd: {}".format(cmd_str))
+        # debug print("\nPrepare server: executing on server cmd:
+        # {}".format(cmd_str))
 
         ssh_execute(ctx, 'gamma', cmd_str, background=True)
     else:
@@ -108,31 +124,36 @@ def prepare_client(ctx, params):
         args.append(params[param])
 
     print("\nargs of client", args)
-    popen = subprocess.Popen(tuple(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen = subprocess.Popen(
+        tuple(args),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
     popen.wait()
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
 
     if len(output_stderr) is not 0:
-        raise Exception('\nMapago-client return STDERR! Somethings broken!')        
+        raise Exception('\nMapago-client return STDERR! Somethings broken!')
 
     lines_json = output_stdout.decode("utf-8")
 
     for line_json in lines_json.splitlines():
-        msmt_db.append(json.loads(line_json))        
+        msmt_db.append(json.loads(line_json))
 
     if len(msmt_db) < 1:
-        raise Exception('\nWe need at least 1 msmt point')        
+        raise Exception('\nWe need at least 1 msmt point')
 
     return msmt_db
 
+
 def host_alive(ctx, hostname):
-    print("\nChecking host {} with addr {}".format(hostname, ctx.config[hostname]['ip-ctrl']))
+    print("\nChecking host {} with addr {}".format(
+        hostname, ctx.config[hostname]['ip-ctrl']))
 
     cmd = 'hostname'
     stdout, stderr = ssh_execute(ctx, hostname, cmd)
     print(stdout, stderr)
-    
+
     return True
 
 
@@ -170,7 +191,7 @@ def ssh_execute(ctx, hostname, command, timeout=10, background=False):
 
             command = '{} > /dev/null 2>&1 &'.format(command)
             channel.exec_command(command)
-            
+
             return None, None
         else:
             stdin, stdout, stderr = ssh.exec_command(command)
