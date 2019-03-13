@@ -10,7 +10,7 @@ def run_test(ctx):
     remoteHosts = ['beta', 'gamma']
     srv_params = {}
     clt_params = {}
-    supported_protocols = ["tcp-throughput", "udp-throughput", "quic-throughput"]
+    supported_protocols = ["tcp-throughput", "tcp-tls-throughput", "udp-throughput", "quic-throughput"]
     
     # TODO maybe as program parameters
     start_cores = 1
@@ -37,7 +37,7 @@ def run_test(ctx):
     clt_params['-control-protocol'] = 'tcp'
     clt_params['-addr'] = '192.186.25.2'
     clt_params['-bytes'] = '140000000'
-    clt_params['-deadline'] = '5'
+    clt_params['-deadline'] = '60'
     clt_params['-buffer-length'] = '1400'
     clt_params['-update-interval'] = '1'
 
@@ -159,7 +159,7 @@ def analyze_data(msmt_results, protocol, clt_bytes):
     print('received: {} bytes]'.format(bytes_rx))
     
     # check if msmt failed
-    if protocol == 'tcp-throughput' or protocol == 'quic-throughput':
+    if protocol == 'tcp-throughput' or protocol == 'quic-throughput' or protocol == 'tcp-tls-throughput':
         print("we have to check if msmt did not crash")
         if bytes_rx < clt_bytes:
             print("\nmsmt has failed/crashed! Nothing transmitted within this iter! Try next iter!")
@@ -172,6 +172,10 @@ def plot_data(total_results):
 
     x_tcp = total_results["tcp-throughput"][0]
     y_tcp = total_results["tcp-throughput"][1]
+
+    x_tcp_tls = total_results["tcp-tls-throughput"][0]
+    y_tcp_tls = total_results["tcp-tls-throughput"][1]   
+
     # print(x_tcp)
     # print(y_tcp)
 
@@ -182,6 +186,7 @@ def plot_data(total_results):
     y_quic = total_results["quic-throughput"][1]
     
     plt.plot(x_tcp, y_tcp, 'b-', label="TCP")
+    plt.plot(x_tcp_tls, y_tcp_tls, 'g-', label="TCPTLS")
     plt.plot(x_udp, y_udp, 'y-', label="UDP")
     plt.plot(x_quic, y_quic, 'r-', label="QUIC")
    
@@ -192,7 +197,7 @@ def plot_data(total_results):
     plt.legend()
     # TODO: Create folder for each msmt
 
-    fig.savefig("./data/throughputMaxTcpQuicUdpByteCount.pdf", bbox_inches='tight')
+    fig.savefig("./data/throughputMaxTcpQuicUdpTlsByteCount.pdf", bbox_inches='tight')
 
 def main(ctx):
     run_test(ctx)
