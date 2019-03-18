@@ -16,13 +16,14 @@ def run_test(ctx):
         "tcp-tls-throughput",
         "udp-throughput",
         "quic-throughput"]
-
     # TODO maybe as program parameters
+    
     start_rate = 30
     stop_rate = 1000
     step_rate = 5
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
     num_iterations = 10
+
     iterations = list(range(num_iterations))
 
     for host in remoteHosts:
@@ -205,11 +206,14 @@ def plot_data(total_results):
     plt.ylabel('Throughput [KBits/s]')
     plt.xlabel('rate [KBit/s]')
 
-    plt.xticks(np.arange(min(x_tcp), max(x_tcp) + 1, 1.0))
+    # TODO: depending on the tick_interval we could round to the next 10s, 100s cont.
+    # i.e. round(97, -1) => 100, round(970, -2) => 1000 ...
+    tick_interval = round((max(x_quic) - min(x_quic)) / 10, -1)
+    plt.xticks(np.arange(min(x_tcp), max(x_tcp) + tick_interval, tick_interval))
     plt.legend()
 
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
     fig.savefig(result_file, bbox_inches='tight')
 
 def main(ctx):
-    run_test(ctx)    
+    run_test(ctx)
