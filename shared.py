@@ -6,7 +6,6 @@ import json
 
 PASSWD = "yourpasswd"
 
-
 def prepare_mapago(ctx):
     print("Preparing mapago")
 
@@ -133,9 +132,13 @@ def prepare_client(ctx, params):
     output_stderr = popen.stderr.read()
 
     if len(output_stderr) is not 0:
+        # debugging
+        print(output_stderr)
         raise Exception('\nMapago-client return STDERR! Somethings broken!')
 
     lines_json = output_stdout.decode("utf-8")
+    # debugging 
+    print(lines_json)
 
     for line_json in lines_json.splitlines():
         msmt_db.append(json.loads(line_json))
@@ -210,3 +213,13 @@ def ssh_execute(ctx, hostname, command, timeout=10, background=False):
         if ssh is not None:
             # Close client connection.
             ssh.close()
+
+def prepare_result(msmt_name):
+    path = "./data/" + msmt_name
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+    
+    # TODO: We could also add a identifier to take series of plots
+    result_file = path + "/" + msmt_name + ".pdf"
+    return result_file 

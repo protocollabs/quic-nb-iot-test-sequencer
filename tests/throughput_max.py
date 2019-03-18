@@ -12,10 +12,11 @@ def run_test(ctx):
     srv_params = {}
     clt_params = {}
     supported_protocols = [
+        "quic-throughput",
         "tcp-throughput",
         "tcp-tls-throughput",
-        "udp-throughput",
-        "quic-throughput"]
+        "udp-throughput"
+        ]
 
     # TODO maybe as program parameters
     start_cores = 1
@@ -208,10 +209,9 @@ def plot_data(total_results):
 
     plt.xticks(np.arange(min(x_tcp), max(x_tcp) + 1, 1.0))
     plt.legend()
-    # TODO: Create folder for each msmt
 
-    fig.savefig("./data/throughputMax.pdf", bbox_inches='tight')
-
+    result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
+    fig.savefig(result_file, bbox_inches='tight')
 
 def main(ctx):
     run_test(ctx)

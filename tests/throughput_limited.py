@@ -6,8 +6,6 @@ from time import sleep
 import numpy as np
 
 # copy & paste from evaluation.py
-
-
 def run_test(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
@@ -20,11 +18,11 @@ def run_test(ctx):
         "quic-throughput"]
 
     # TODO maybe as program parameters
-    start_rate = 20
-    stop_rate = 100
-    step_rate = 10
+    start_rate = 30
+    stop_rate = 1000
+    step_rate = 5
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
-    num_iterations = 5
+    num_iterations = 10
     iterations = list(range(num_iterations))
 
     for host in remoteHosts:
@@ -189,15 +187,18 @@ def plot_data(total_results):
 
     x_tcp = total_results["tcp-throughput"][0]
     y_tcp = total_results["tcp-throughput"][1]
-    # print(x_tcp)
-    # print(y_tcp)
+
+    x_tcp_tls = total_results["tcp-tls-throughput"][0]
+    y_tcp_tls = total_results["tcp-tls-throughput"][1]
 
     x_udp = total_results["udp-throughput"][0]
     y_udp = total_results["udp-throughput"][1]
+
     x_quic = total_results["quic-throughput"][0]
     y_quic = total_results["quic-throughput"][1]
 
     plt.plot(x_tcp, y_tcp, 'b-', label="TCP")
+    plt.plot(x_tcp_tls, y_tcp_tls, 'g-', label="TCPTLS")
     plt.plot(x_udp, y_udp, 'y-', label="UDP")
     plt.plot(x_quic, y_quic, 'r-', label="QUIC")
 
@@ -206,9 +207,9 @@ def plot_data(total_results):
 
     plt.xticks(np.arange(min(x_tcp), max(x_tcp) + 1, 1.0))
     plt.legend()
-    # TODO: Create folder for each msmt
-    fig.savefig("./data/throughputLimited.pdf", bbox_inches='tight')
 
+    result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
+    fig.savefig(result_file, bbox_inches='tight')
 
 def main(ctx):
-    run_test(ctx)
+    run_test(ctx)    
