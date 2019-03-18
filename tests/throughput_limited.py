@@ -6,23 +6,26 @@ from time import sleep
 import numpy as np
 
 # copy & paste from evaluation.py
-
 def run_test(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
     srv_params = {}
     clt_params = {}
-    supported_protocols = ["tcp-throughput", "udp-throughput", "quic-throughput"]
-    # supported_protocols = ["tcp-throughput"]
-    
+    supported_protocols = [
+        "tcp-throughput",
+        "tcp-tls-throughput",
+        "udp-throughput",
+        "quic-throughput"]
     # TODO maybe as program parameters
-    start_rate = 50
-    stop_rate = 500
-    step_rate = 50
-    analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
-    num_iterations = 1
-    iterations = list(range(num_iterations))
     
+    start_rate = 30
+    stop_rate = 1000
+    step_rate = 5
+    analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
+    num_iterations = 10
+
+    iterations = list(range(num_iterations))
+
     for host in remoteHosts:
         avail = shared.host_alive(ctx, host)
 
@@ -36,15 +39,17 @@ def run_test(ctx):
     srv_params['-uc-listen-addr'] = '192.186.23.3'
     srv_params['-port'] = '64321'
 
-    clt_params['-ctrl-addr'] = '192.186.23.3'
-    clt_params['-ctrl-protocol'] = 'tcp'
+    clt_params['-control-addr'] = '192.186.23.3'
+    clt_params['-control-protocol'] = 'tcp'
     clt_params['-streams'] = '1'
     clt_params['-addr'] = '192.186.25.2'
-    clt_params['-msmt-time'] = '30'
+    clt_params['-bytes'] = '140000'
+    clt_params['-deadline'] = '60'
     clt_params['-buffer-length'] = '1400'
     clt_params['-update-interval'] = '1'
 
-    total_results = {} 
+    clt_bytes = int(clt_params['-bytes'])
+    total_results = {}
 
     for protocol in supported_protocols:
         print("\n-------- analyzing: {} --------".format(protocol))
@@ -60,8 +65,10 @@ def run_test(ctx):
             print("\n------ configuring rate to: {} --------".format(rate))
 
             shared.netem_reset(ctx, 'beta', interfaces=interfaces)
-            shared.netem_configure(ctx, 'beta', interfaces=interfaces, netem_params={'rate': '{}kbit'.format(rate)})
-            
+            shared.netem_configure(
+                ctx, 'beta', interfaces=interfaces, netem_params={
+                    'rate': '{}kbit'.format(rate)})
+
             # stores all iteration results regarding a specific rate
             kbits_per_rate = []
 
@@ -71,28 +78,30 @@ def run_test(ctx):
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
                 msmt_results = shared.prepare_client(ctx, clt_params)
-                kbits_iter = analyze_data(msmt_results)
+                kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
+
                 kbits_per_rate.append(kbits_iter)
 
             kbits_per_rate_normalized = 0
 
             # account all iters
             for kbits_iter in kbits_per_rate:
-                kbits_per_rate_normalized += kbits_iter  
-            # 
+                kbits_per_rate_normalized += kbits_iter
+            #
             kbits_per_rate_normalized = kbits_per_rate_normalized / num_iterations
-            print("\n mean kbits per rate: {}".format(kbits_per_rate_normalized))
+            print("\n mean kbits per rate: {}".format(
+                kbits_per_rate_normalized))
 
             # future x axis (rates)
             x.append(rate)
-            
+
             # future y axis (throughput)
             y.append(kbits_per_rate_normalized)
 
         # we are with this protocol finished add to total results
-        total_results[protocol] = (x,y)
+        total_results[protocol] = (x, y)
         print(total_results)
-         
+
         print("\nsleeping")
         sleep(5)
         print("\n next protocol")
@@ -100,7 +109,7 @@ def run_test(ctx):
     plot_data(total_results)
 
 
-def analyze_data(msmt_results):
+def analyze_data(msmt_results, protocol, clt_bytes):
     # min and max will at the end of the next loop contain
     # the real min and max values
     datetime_min = datetime.datetime(4000, 1, 1)
@@ -126,17 +135,17 @@ def analyze_data(msmt_results):
         for stream in entry:
             time = datetime.datetime.strptime(
                 stream['ts-start'], '%Y-%m-%dT%H:%M:%S.%f')
-        
+
             if time < datetime_min:
                 datetime_min = time
-            
-                if prev_datetime_max_set == False:
+
+                if not prev_datetime_max_set:
                     prev_datetime_max = datetime_min
-                    prev_datetime_max_set = True 
+                    prev_datetime_max_set = True
 
             time = datetime.datetime.strptime(
                 stream['ts-end'], '%Y-%m-%dT%H:%M:%S.%f')
-        
+
             if time > datetime_max:
                 datetime_max = time
 
@@ -163,35 +172,48 @@ def analyze_data(msmt_results):
     print('measurement length: {} sec]'.format(measurement_length))
     print('received: {} bytes]'.format(bytes_rx))
 
+    # check if msmt failed: add tcp-tls-throughput
+    if protocol == 'tcp-throughput' or protocol == 'quic-throughput' or protocol == 'tcp-tls-throughput':
+        print("we have to check if msmt did not crash")
+        if bytes_rx < clt_bytes:
+            print(
+                "\nmsmt has failed/crashed! Nothing transmitted within this iter! Try next iter!")
+            return 0
+
     return Kbits_sec
+
 
 def plot_data(total_results):
     fig = plt.figure()
 
     x_tcp = total_results["tcp-throughput"][0]
     y_tcp = total_results["tcp-throughput"][1]
-    # print(x_tcp)
-    # print(y_tcp)
+
+    x_tcp_tls = total_results["tcp-tls-throughput"][0]
+    y_tcp_tls = total_results["tcp-tls-throughput"][1]
 
     x_udp = total_results["udp-throughput"][0]
     y_udp = total_results["udp-throughput"][1]
+
     x_quic = total_results["quic-throughput"][0]
     y_quic = total_results["quic-throughput"][1]
-    
+
     plt.plot(x_tcp, y_tcp, 'b-', label="TCP")
+    plt.plot(x_tcp_tls, y_tcp_tls, 'g-', label="TCPTLS")
     plt.plot(x_udp, y_udp, 'y-', label="UDP")
     plt.plot(x_quic, y_quic, 'r-', label="QUIC")
-   
+
     plt.ylabel('Throughput [KBits/s]')
     plt.xlabel('rate [KBit/s]')
 
-    plt.xticks(np.arange(min(x_tcp), max(x_tcp)+ 1, 1.0))
+    # TODO: depending on the tick_interval we could round to the next 10s, 100s cont.
+    # i.e. round(97, -1) => 100, round(970, -2) => 1000 ...
+    tick_interval = round((max(x_quic) - min(x_quic)) / 10, -1)
+    plt.xticks(np.arange(min(x_tcp), max(x_tcp) + tick_interval, tick_interval))
     plt.legend()
-    # TODO: Create folder for each msmt
-    fig.savefig("./data/throughputLimited.pdf", bbox_inches='tight')
+
+    result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
+    fig.savefig(result_file, bbox_inches='tight')
 
 def main(ctx):
     run_test(ctx)
-
-
-   
