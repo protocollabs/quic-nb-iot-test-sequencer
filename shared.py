@@ -5,6 +5,8 @@ import subprocess
 import json
 
 PASSWD = "yourpasswd"
+MINBYTES = 140000
+MAXBYTES = 14000000
 
 def prepare_mapago(ctx):
     print("Preparing mapago")
@@ -223,3 +225,13 @@ def prepare_result(msmt_name):
     # TODO: We could also add a identifier to take series of plots
     result_file = path + "/" + msmt_name + ".pdf"
     return result_file 
+
+def calc_clt_bytes(current_rate):
+    clt_min_kbits = MINBYTES * 8 / (10**3)
+    clt_max_kbits = MAXBYTES * 8 / (10**3)
+    clt_min_kbits_s = 10
+    clt_max_kbits_s = 1000 
+
+    current_kbits = clt_min_kbits + ((clt_max_kbits - clt_min_kbits) / (clt_max_kbits_s - clt_min_kbits_s)) * (current_rate - clt_min_kbits_s)
+    current_bytes = current_kbits * (10**3) / 8
+    return current_bytes
