@@ -18,9 +18,9 @@ def run_test(ctx):
         "quic-throughput"]
     # TODO maybe as program parameters
     
-    start_rate = 30
+    start_rate = 10
     stop_rate = 1000
-    step_rate = 5
+    step_rate = 10
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
     num_iterations = 10
 
@@ -43,12 +43,10 @@ def run_test(ctx):
     clt_params['-control-protocol'] = 'tcp'
     clt_params['-streams'] = '1'
     clt_params['-addr'] = '192.186.25.2'
-    clt_params['-bytes'] = '140000'
     clt_params['-deadline'] = '60'
     clt_params['-buffer-length'] = '1400'
     clt_params['-update-interval'] = '1'
 
-    clt_bytes = int(clt_params['-bytes'])
     total_results = {}
 
     for protocol in supported_protocols:
@@ -68,6 +66,11 @@ def run_test(ctx):
             shared.netem_configure(
                 ctx, 'beta', interfaces=interfaces, netem_params={
                     'rate': '{}kbit'.format(rate)})
+
+            clt_bytes = int(shared.calc_clt_bytes(rate))
+            # print("\nclt sends: {} bytes".format(clt_bytes))
+            clt_params['-bytes'] = str(clt_bytes)
+
 
             # stores all iteration results regarding a specific rate
             kbits_per_rate = []
@@ -157,12 +160,16 @@ def analyze_data(msmt_results, protocol, clt_bytes):
         mbits_per_period = (bytes_per_period * 8) / 10**6
         # bytes_rx == # bytes until now received
         bytes_rx = bytes_measurement_point
-
+        
         # this works only if data is send immediately after prev_datetime_max
         # or we pay attention to a period where nothing is transmitted
         prev_datetime_max = datetime_max
 
     measurement_length = (datetime_max - datetime_min).total_seconds()
+    if measurement_length == 0:
+        print("\n timestamps identical. no data transmitted")
+        return 0
+
     bytes_sec = bytes_rx / measurement_length
     Mbits_sec = (bytes_sec * 8) / 10**6
     Kbits_sec = (bytes_sec * 8) / 10**3
@@ -217,3 +224,4 @@ def plot_data(total_results):
 
 def main(ctx):
     run_test(ctx)
+    #run_test_debug_quic(ctx)
