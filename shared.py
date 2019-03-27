@@ -3,6 +3,7 @@ import paramiko
 import time
 import subprocess
 import json
+import math
 
 PASSWD = "yourpasswd"
 MINBYTES = 140000
@@ -235,3 +236,7 @@ def calc_clt_bytes(current_rate):
     current_kbits = clt_min_kbits + ((clt_max_kbits - clt_min_kbits) / (clt_max_kbits_s - clt_min_kbits_s)) * (current_rate - clt_min_kbits_s)
     current_bytes = current_kbits * (10**3) / 8
     return current_bytes
+
+def round_xticks(xtick):
+    return int(math.ceil(xtick / 10.0)) * 10
+

@@ -22,7 +22,7 @@ def run_test(ctx):
     stop_rate = 1000
     step_rate = 10
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
-    num_iterations = 10
+    num_iterations = 4
 
     iterations = list(range(num_iterations))
 
@@ -52,8 +52,8 @@ def run_test(ctx):
     for protocol in supported_protocols:
         print("\n-------- analyzing: {} --------".format(protocol))
         # TODO: move mapago_reset, prepare_server, netem_reset up
-        shared.mapago_reset(ctx, 'gamma')
-        shared.prepare_server(ctx, srv_params)
+        # shared.mapago_reset(ctx, 'gamma')
+        # shared.prepare_server(ctx, srv_params)
 
         x = []
         y = []
@@ -90,7 +90,7 @@ def run_test(ctx):
             # account all iters
             for kbits_iter in kbits_per_rate:
                 kbits_per_rate_normalized += kbits_iter
-            #
+
             kbits_per_rate_normalized = kbits_per_rate_normalized / num_iterations
             print("\n mean kbits per rate: {}".format(
                 kbits_per_rate_normalized))
@@ -189,7 +189,6 @@ def analyze_data(msmt_results, protocol, clt_bytes):
 
     return Kbits_sec
 
-
 def plot_data(total_results):
     fig = plt.figure()
 
@@ -213,14 +212,27 @@ def plot_data(total_results):
     plt.ylabel('Throughput [KBits/s]')
     plt.xlabel('rate [KBit/s]')
 
-    # TODO: depending on the tick_interval we could round to the next 10s, 100s cont.
-    # i.e. round(97, -1) => 100, round(970, -2) => 1000 ...
-    tick_interval = round((max(x_quic) - min(x_quic)) / 10, -1)
-    plt.xticks(np.arange(min(x_tcp), max(x_tcp) + tick_interval, tick_interval))
+    tick_interval = (max(x_quic) - min(x_quic)) / 10
+    tick_interval_rounded = shared.round_xticks(tick_interval)
+
+    # create ticks accordingly
+    ticks = np.arange(min(x_tcp), max(x_tcp) + tick_interval_rounded, tick_interval_rounded)
+    # debug print("created ticks: ", ticks)
+
+    for tick in ticks:
+        if len(str(tick)) >= 3:
+            tick_index = np.where(ticks == tick)
+            tick_rounded = round(tick, -2)
+            ticks[tick_index] = tick_rounded
+    
+    # debug print("rounded ticks: ", ticks)
+
+    plt.xticks(ticks)
     plt.legend()
 
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
     fig.savefig(result_file, bbox_inches='tight')
+
 
 def main(ctx):
     run_test(ctx)
