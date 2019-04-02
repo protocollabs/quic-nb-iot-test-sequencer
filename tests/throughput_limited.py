@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from time import sleep
 import numpy as np
 
+analyzing_rates = [5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
+
 # copy & paste from evaluation.py
 def run_test(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
@@ -16,13 +18,18 @@ def run_test(ctx):
         "tcp-tls-throughput",
         "udp-throughput",
         "quic-throughput"]
-    # TODO maybe as program parameters
     
+    '''
+    use: start, stop interval or predefined msmt points 
     start_rate = 10
     stop_rate = 1000
     step_rate = 10
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
-    num_iterations = 4
+    '''
+
+    print("rate: ", analyzing_rates)
+
+    num_iterations = 10
 
     iterations = list(range(num_iterations))
 
@@ -48,15 +55,17 @@ def run_test(ctx):
     clt_params['-update-interval'] = '1'
 
     total_results = {}
+    total_results_debug = {}
 
     for protocol in supported_protocols:
         print("\n-------- analyzing: {} --------".format(protocol))
-        # TODO: move mapago_reset, prepare_server, netem_reset up
+        # uncomment for debugability
         # shared.mapago_reset(ctx, 'gamma')
         # shared.prepare_server(ctx, srv_params)
 
         x = []
         y = []
+        kbits_normalized = []
 
         for rate in analyzing_rates:
             ''' We need to reset the netem server and reconfigure'''
@@ -68,11 +77,8 @@ def run_test(ctx):
                     'rate': '{}kbit'.format(rate)})
 
             clt_bytes = int(shared.calc_clt_bytes(rate))
-            # print("\nclt sends: {} bytes".format(clt_bytes))
             clt_params['-bytes'] = str(clt_bytes)
 
-
-            # stores all iteration results regarding a specific rate
             kbits_per_rate = []
 
             for iteration in iterations:
@@ -98,12 +104,16 @@ def run_test(ctx):
             # future x axis (rates)
             x.append(rate)
 
-            # future y axis (throughput)
-            y.append(kbits_per_rate_normalized)
+            goodput_rate_quotient = float(kbits_per_rate_normalized / rate)
+            
+            y.append(goodput_rate_quotient)
+            kbits_normalized.append(kbits_per_rate_normalized)
 
         # we are with this protocol finished add to total results
         total_results[protocol] = (x, y)
-        print(total_results)
+        total_results_debug[protocol] = (x, kbits_normalized)
+        print("goodput quotient for protocol: ", total_results)
+        print("total_results_debug: ", total_results_debug)
 
         print("\nsleeping")
         sleep(5)
@@ -189,6 +199,7 @@ def analyze_data(msmt_results, protocol, clt_bytes):
 
     return Kbits_sec
 
+
 def plot_data(total_results):
     fig = plt.figure()
 
@@ -204,14 +215,16 @@ def plot_data(total_results):
     x_quic = total_results["quic-throughput"][0]
     y_quic = total_results["quic-throughput"][1]
 
-    plt.plot(x_tcp, y_tcp, 'b-', label="TCP")
-    plt.plot(x_tcp_tls, y_tcp_tls, 'g-', label="TCPTLS")
-    plt.plot(x_udp, y_udp, 'y-', label="UDP")
-    plt.plot(x_quic, y_quic, 'r-', label="QUIC")
+    plt.plot(x_tcp, y_tcp, linestyle=':', marker='v', markersize=4, color='#377eb8', label="TCP")
+    plt.plot(x_tcp_tls, y_tcp_tls, linestyle='-.', marker='^', markersize=4, color='#4daf4a', label="TCPTLS")
+    plt.plot(x_udp, y_udp, linestyle='--', marker='o', markersize=4, color='#984ea3', label="UDP")
+    plt.plot(x_quic, y_quic, linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
 
-    plt.ylabel('Throughput [KBits/s]')
+    plt.ylabel('Goodput/rate [%]')
     plt.xlabel('rate [KBit/s]')
 
+    '''
+    create tick intervals or use predefined list
     tick_interval = (max(x_quic) - min(x_quic)) / 10
     tick_interval_rounded = shared.round_xticks(tick_interval)
 
@@ -225,15 +238,27 @@ def plot_data(total_results):
             tick_rounded = round(tick, -2)
             ticks[tick_index] = tick_rounded
     
-    # debug print("rounded ticks: ", ticks)
+    
+    # plt.xticks(ticks)
+    '''
 
-    plt.xticks(ticks)
+    plt.xticks(analyzing_rates)
+   
     plt.legend()
+    # check alternatives 
+    # that sucks plt.ylim(bottom=0, top=1.0)
+    
+    plt.gca().invert_xaxis()
+    # grid properties
+    # plt.rc('grid', linestyle=":", color='black')
+    plt.grid(color='darkgray', linestyle=':')
+
 
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
+    fig.suptitle("Rate limitation: Large interval analysis\n {}".format(r'(Steps = 23, Iterations = 10, $t_{deadline} = 60s$)'), fontsize=10)
     fig.savefig(result_file, bbox_inches='tight')
 
 
 def main(ctx):
     run_test(ctx)
-    #run_test_debug_quic(ctx)
+    
