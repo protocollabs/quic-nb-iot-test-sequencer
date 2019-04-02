@@ -7,10 +7,9 @@ import argparse
 
 from tests import throughput_max
 from tests import throughput_limited
-
-
+from tests import throughput_limited_critical
+from tests import reachability_rate
 CONFIG_NAME = 'network.conf'
-
 
 def update_software(ctx):
     print("Dummy Func to update software on Mapago topology")
@@ -61,7 +60,7 @@ def main():
     parser.add_argument("--config", help="append path to your own config")
     parser.add_argument(
         "--testcase",
-        help="select testcase: throughput_max, throughput_limited")
+        help="select testcase: throughput_max, throughput_limited, throughput_limited_critical, reachability_rate")
 
     args = parser.parse_args()
 
@@ -74,6 +73,10 @@ def main():
         throughput_max.main(ctx)
     elif args.testcase == "throughput_limited":
         throughput_limited.main(ctx)
+    elif args.testcase == "throughput_limited_critical":
+        throughput_limited_critical.main(ctx)    
+    elif args.testcase == "reachability_rate":
+        reachability_rate.main(ctx)    
     else:
         raise Exception('\nunknown testcase!')
 
