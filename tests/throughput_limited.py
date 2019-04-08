@@ -86,7 +86,15 @@ def run_test(ctx):
 
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
-                msmt_results = shared.prepare_client(ctx, clt_params)
+                
+                msmt_results = []
+
+                while len(msmt_results) < 1:
+                    msmt_results = shared.prepare_client(ctx, clt_params)
+                    
+                    if len(msmt_results) < 1:
+                        print("\nClient NOT terminated! reissue until client terminates!")
+
                 kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
 
                 kbits_per_rate.append(kbits_iter)

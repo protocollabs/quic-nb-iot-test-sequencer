@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from time import sleep
 import numpy as np
 
-analyzing_rates = [1, 2, 5, 10, 15, 20, 25, 30, 40, 50]
+analyzing_rates = [2, 5, 10, 15, 20, 25, 30, 40, 50]
+
 
 # copy & paste from evaluation.py
 def run_test(ctx):
@@ -27,10 +28,9 @@ def run_test(ctx):
     step_rate = 2
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
     '''
-    
-    # analyzing_rates = [1, 2, 5, 10, 15, 20, 25, 30, 40, 50]
+
     print("rate: ", analyzing_rates)
-    num_iterations = 10
+    num_iterations = 10 
 
     iterations = list(range(num_iterations))
 
@@ -52,6 +52,7 @@ def run_test(ctx):
     clt_params['-streams'] = '1'
     clt_params['-addr'] = '192.186.25.2'
     clt_params['-deadline'] = '60'
+    #clt_params['-buffer-length'] = '1400'
     clt_params['-buffer-length'] = '1400'
     clt_params['-update-interval'] = '1'
 
@@ -76,10 +77,7 @@ def run_test(ctx):
         # goodput_rate_min
         goodput_rate_min = []
 
-
-
         kbits_normalized = []
-
 
         for rate in analyzing_rates:
             print("\n------ configuring rate to: {} --------".format(rate))
@@ -103,7 +101,15 @@ def run_test(ctx):
 
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
-                msmt_results = shared.prepare_client(ctx, clt_params)
+                
+                msmt_results = []
+
+                while len(msmt_results) < 1:
+                    msmt_results = shared.prepare_client(ctx, clt_params)
+                    
+                    if len(msmt_results) < 1:
+                        print("\nClient NOT terminated! reissue until client terminates!")
+
                 kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
 
                 # 1. used to calculate AVG
