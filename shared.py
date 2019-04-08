@@ -145,12 +145,19 @@ def prepare_client(ctx, params):
         args.append(param)
         args.append(params[param])
 
-    print("\nargs of client", args)
     popen = subprocess.Popen(
         tuple(args),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
-    popen.wait()
+    
+    try:
+        popen.wait(timeout=240)
+
+    except subprocess.TimeoutExpired:
+        # cleanup
+        popen.kill()
+        return msmt_db
+
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
 
@@ -160,8 +167,6 @@ def prepare_client(ctx, params):
         raise Exception('\nMapago-client return STDERR! Somethings broken!')
 
     lines_json = output_stdout.decode("utf-8")
-    # debugging 
-    print(lines_json)
 
     for line_json in lines_json.splitlines():
         msmt_db.append(json.loads(line_json))
