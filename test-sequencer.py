@@ -9,6 +9,8 @@ from tests import throughput_max
 from tests import throughput_limited
 from tests import throughput_limited_critical
 from tests import reachability_rate
+from tests import goodput_loss
+
 CONFIG_NAME = 'network.conf'
 
 def update_software(ctx):
@@ -60,7 +62,7 @@ def main():
     parser.add_argument("--config", help="append path to your own config")
     parser.add_argument(
         "--testcase",
-        help="select testcase: throughput_max, throughput_limited, throughput_limited_critical, reachability_rate")
+        help="select testcase: throughput_max, throughput_limited, throughput_limited_critical, reachability_rate, goodput_loss")
 
     args = parser.parse_args()
 
@@ -76,7 +78,9 @@ def main():
     elif args.testcase == "throughput_limited_critical":
         throughput_limited_critical.main(ctx)    
     elif args.testcase == "reachability_rate":
-        reachability_rate.main(ctx)    
+        reachability_rate.main(ctx)
+    elif args.testcase == "goodput_loss":
+        goodput_loss.main(ctx)    
     else:
         raise Exception('\nunknown testcase!')
 
