@@ -161,6 +161,7 @@ def prepare_client(ctx, params):
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
 
+
     if len(output_stderr) is not 0:
         # debugging
         print(output_stderr)
@@ -265,3 +266,19 @@ def calc_clt_bytes(current_rate):
 def round_xticks(xtick):
     return int(math.ceil(xtick / 10.0)) * 10
 
+def save_raw_data(msmt_name, msmt_data):
+    path = "./data/" + msmt_name
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    raw_result_file = path + "/" + msmt_name + ".txt"
+
+    with open(raw_result_file, 'a') as f:
+        data = json.dumps(msmt_data)
+        f.write(data)
+        
+    if f.closed is True:
+        print("File closed successfully!")
+    else:
+        print("file not closed")
