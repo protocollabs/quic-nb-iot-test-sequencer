@@ -7,9 +7,6 @@ import numpy as np
 
 analyzing_rates = [5, 50, 250, 500]
 analyzing_loss = [2, 5, 10, 20]
-# debug analyzing_rates = [5, 50]
-# debug analyzing_loss = [5, 10]
-
 
 # copy & paste from evaluation.py
 def run_test(ctx):
@@ -34,8 +31,8 @@ def run_test(ctx):
 
     print("rate: ", analyzing_rates)
 
-    # debug num_iterations = 1
-    num_iterations = 10
+    # debug num_iterations = 10
+    num_iterations = 4
 
 
     iterations = list(range(num_iterations))
@@ -111,16 +108,25 @@ def run_test(ctx):
                 for iteration in iterations:
                     print("\n -------- {}. iteration -------".format(iteration))
 
+                    # ensure server is running per iter
+                    # note: using this we cant get "ssh" debug data
+                    # due to background cmd
+                    # we could implement a logging routine in mapago writing to a log file on srv...
+                    shared.mapago_reset(ctx, 'gamma')
+                    shared.prepare_server(ctx, srv_params)
+
+
                     clt_params['-module'] = '{}'.format(protocol)
                     print("\n starting module: {}".format(clt_params['-module']))
            
                     msmt_results = []
 
                     while len(msmt_results) < 1:
+                        print("\nIssueing prepare_client!\n")
                         msmt_results = shared.prepare_client(ctx, clt_params)
                     
                         if len(msmt_results) < 1:
-                            print("\nClient NOT terminated! reissue until client terminates!")
+                            print("\n!!!!!!Error!!!!!! Client NOT terminated! reissue until client terminates!")
 
                     kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
 
@@ -161,7 +167,8 @@ def run_test(ctx):
 
         # 9. we got the list of lists for a single protocol complete: add it
         total_goodput_rate_avg[protocol] = (visited_rate, visited_loss, quotients_all_rates_over_losses)
-
+        shared.save_raw_data(os.path.basename(__file__)[:-3], total_goodput_rate_avg)   
+    
 
         print("\n visited_rate: ", visited_rate)
         print("\n visited_loss: ", visited_loss)
