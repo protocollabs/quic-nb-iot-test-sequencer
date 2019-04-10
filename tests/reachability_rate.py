@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from time import sleep
 import numpy as np
 
-analyzing_rates = [2, 5, 10, 15, 20, 25, 30, 40, 50]
+analyzing_rates = [2, 5, 10, 15, 20, 25, 30]
 
 
 # copy & paste from evaluation.py
@@ -30,7 +30,7 @@ def run_test(ctx):
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
     '''
     print("analyzing rates: ", analyzing_rates)
-    num_iterations = 10
+    num_iterations = 5
 
 
     iterations = list(range(num_iterations))
@@ -84,6 +84,14 @@ def run_test(ctx):
             for iteration in iterations:
                 print("\n -------- {}. iteration -------".format(iteration))
 
+                # ensure server is running per iter
+                # note: using this we cant get "ssh" debug data
+                # due to background cmd
+                # we could implement a logging routine in mapago writing to a log file on srv...
+                shared.mapago_reset(ctx, 'gamma')
+                shared.prepare_server(ctx, srv_params)
+
+
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
                
@@ -118,6 +126,8 @@ def run_test(ctx):
 
         # we are with this protocol finished add to total results
         total_results[protocol] = (x, y)
+        shared.save_raw_data(os.path.basename(__file__)[:-3], total_results)   
+
         print(total_results)
 
         print("\nsleeping")
