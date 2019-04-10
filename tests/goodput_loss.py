@@ -178,7 +178,7 @@ def run_test(ctx):
         sleep(5)
         print("\n next protocol")
 
-    # plot_data(total_results)
+    plot_data(total_goodput_rate_avg)
 
 
 def analyze_data(msmt_results, protocol, clt_bytes):
@@ -259,63 +259,115 @@ def analyze_data(msmt_results, protocol, clt_bytes):
     return Kbits_sec
 
 
-def plot_data(total_results):
-    fig = plt.figure()
+def plot_data(gp_avg):
+    
+    tcp_gp_avg_first_rate = gp_avg["tcp-throughput"][2][0]
+    tcp_gp_avg_second_rate = gp_avg["tcp-throughput"][2][1]
+    tcp_gp_avg_third_rate = gp_avg["tcp-throughput"][2][2]
+    tcp_gp_avg_fourth_rate = gp_avg["tcp-throughput"][2][3]
 
-    x_tcp = total_results["tcp-throughput"][0]
-    y_tcp = total_results["tcp-throughput"][1]
+    tls_gp_avg_first_rate = gp_avg["tcp-tls-throughput"][2][0]
+    tls_gp_avg_second_rate = gp_avg["tcp-tls-throughput"][2][1]
+    tls_gp_avg_third_rate = gp_avg["tcp-tls-throughput"][2][2]
+    tls_gp_avg_fourth_rate = gp_avg["tcp-tls-throughput"][2][3]
 
-    x_tcp_tls = total_results["tcp-tls-throughput"][0]
-    y_tcp_tls = total_results["tcp-tls-throughput"][1]
+    udp_gp_avg_first_rate = gp_avg["udp-throughput"][2][0]
+    udp_gp_avg_second_rate = gp_avg["udp-throughput"][2][1]
+    udp_gp_avg_third_rate = gp_avg["udp-throughput"][2][2]
+    udp_gp_avg_fourth_rate = gp_avg["udp-throughput"][2][3]
 
-    x_udp = total_results["udp-throughput"][0]
-    y_udp = total_results["udp-throughput"][1]
+    quic_gp_avg_first_rate = gp_avg["quic-throughput"][2][0]
+    quic_gp_avg_second_rate = gp_avg["quic-throughput"][2][1]
+    quic_gp_avg_third_rate = gp_avg["quic-throughput"][2][2]
+    quic_gp_avg_fourth_rate = gp_avg["quic-throughput"][2][3]
 
-    x_quic = total_results["quic-throughput"][0]
-    y_quic = total_results["quic-throughput"][1]
+    # one can also use the other protocols loss values. 
+    # also ensures different loss values => add ons for future 
+    first_rate_loss_values = gp_avg["tcp-throughput"][1][0]
+    second_rate_loss_values = gp_avg["tcp-throughput"][1][1]
+    third_rate_loss_values = gp_avg["tcp-throughput"][1][2]
+    fourth_rate_loss_values = gp_avg["tcp-throughput"][1][3]
 
-    plt.plot(x_tcp, y_tcp, linestyle=':', marker='v', markersize=4, color='#377eb8', label="TCP")
-    plt.plot(x_tcp_tls, y_tcp_tls, linestyle='-.', marker='^', markersize=4, color='#4daf4a', label="TCPTLS")
-    plt.plot(x_udp, y_udp, linestyle='--', marker='o', markersize=4, color='#984ea3', label="UDP")
-    plt.plot(x_quic, y_quic, linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
+
+
+    # first plot
+    fig = plt.figure(figsize=(11, 9))
+    ay1 = plt.subplot(411) 
+
+    plt.plot(first_rate_loss_values, tcp_gp_avg_first_rate, linestyle=':', marker='v', markersize=4, color='#377eb8', label="TCP")
+    plt.plot(first_rate_loss_values, tls_gp_avg_first_rate, linestyle='-.', marker='^', markersize=4, color='#4daf4a', label="TCPTLS")
+    plt.plot(first_rate_loss_values, udp_gp_avg_first_rate, linestyle='--', marker='o', markersize=4, color='#984ea3', label="UDP")
+    plt.plot(first_rate_loss_values, quic_gp_avg_first_rate, linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
 
     plt.ylabel('Goodput/rate [%]')
-    plt.xlabel('rate [KBit/s]')
-
-    '''
-    create tick intervals or use predefined list
-    tick_interval = (max(x_quic) - min(x_quic)) / 10
-    tick_interval_rounded = shared.round_xticks(tick_interval)
-
-    # create ticks accordingly
-    ticks = np.arange(min(x_tcp), max(x_tcp) + tick_interval_rounded, tick_interval_rounded)
-    # debug print("created ticks: ", ticks)
-
-    for tick in ticks:
-        if len(str(tick)) >= 3:
-            tick_index = np.where(ticks == tick)
-            tick_rounded = round(tick, -2)
-            ticks[tick_index] = tick_rounded
-    
-    
-    # plt.xticks(ticks)
-    '''
-
-    plt.xticks(analyzing_rates)
-   
+    plt.xlabel('loss [%]', labelpad=0)
+    plt.xticks(first_rate_loss_values)
     plt.legend()
-    # check alternatives 
-    # that sucks plt.ylim(bottom=0, top=1.0)
-    
-    plt.gca().invert_xaxis()
-    # grid properties
-    # plt.rc('grid', linestyle=":", color='black')
+    # we dont need that plt.gca().invert_xaxis()
     plt.grid(color='darkgray', linestyle=':')
+    plt.title('Rate: {} KBit/s'.format(gp_avg["tcp-throughput"][0][0]))
 
 
+
+
+    plt.subplot(412, sharey=ay1) 
+
+    plt.plot(second_rate_loss_values, tcp_gp_avg_second_rate, linestyle=':', marker='v', markersize=4, color='#377eb8', label="TCP")
+    plt.plot(second_rate_loss_values, tls_gp_avg_second_rate, linestyle='-.', marker='^', markersize=4, color='#4daf4a', label="TCPTLS")
+    plt.plot(second_rate_loss_values, udp_gp_avg_second_rate, linestyle='--', marker='o', markersize=4, color='#984ea3', label="UDP")
+    plt.plot(second_rate_loss_values, quic_gp_avg_second_rate, linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
+
+    plt.ylabel('Goodput/rate [%]')
+    plt.xlabel('loss [%]', labelpad=0)
+    plt.xticks(second_rate_loss_values)
+    plt.legend()
+    # we dont need that plt.gca().invert_xaxis()
+    plt.grid(color='darkgray', linestyle=':')
+    plt.title('Rate: {} KBit/s'.format(gp_avg["tcp-throughput"][0][1]))
+
+
+    plt.subplot(413, sharey=ay1) 
+
+    plt.plot(third_rate_loss_values, tcp_gp_avg_third_rate, linestyle=':', marker='v', markersize=4, color='#377eb8', label="TCP")
+    plt.plot(third_rate_loss_values, tls_gp_avg_third_rate, linestyle='-.', marker='^', markersize=4, color='#4daf4a', label="TCPTLS")
+    plt.plot(third_rate_loss_values, udp_gp_avg_third_rate, linestyle='--', marker='o', markersize=4, color='#984ea3', label="UDP")
+    plt.plot(third_rate_loss_values, quic_gp_avg_third_rate, linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
+
+    plt.ylabel('Goodput/rate [%]')
+    plt.xlabel('loss [%]', labelpad=0)
+    plt.xticks(third_rate_loss_values)
+    plt.legend()
+    # we dont need that plt.gca().invert_xaxis()
+    plt.grid(color='darkgray', linestyle=':')
+    plt.title('Rate: {} KBit/s'.format(gp_avg["tcp-throughput"][0][2]))
+
+
+
+
+    plt.subplot(414, sharey=ay1) 
+
+    plt.plot(fourth_rate_loss_values, tcp_gp_avg_fourth_rate, linestyle=':', marker='v', markersize=4, color='#377eb8', label="TCP")
+    plt.plot(fourth_rate_loss_values, tls_gp_avg_fourth_rate, linestyle='-.', marker='^', markersize=4, color='#4daf4a', label="TCPTLS")
+    plt.plot(fourth_rate_loss_values, udp_gp_avg_fourth_rate, linestyle='--', marker='o', markersize=4, color='#984ea3', label="UDP")
+    plt.plot(fourth_rate_loss_values, quic_gp_avg_fourth_rate, linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
+
+    plt.ylabel('Goodput/rate [%]')
+    plt.xlabel('loss [%]', labelpad=0)
+    plt.xticks(third_rate_loss_values)
+    plt.legend()
+    # we dont need that plt.gca().invert_xaxis()
+    plt.grid(color='darkgray', linestyle=':')
+    plt.title('Rate: {} KBit/s'.format(gp_avg["tcp-throughput"][0][3]))
+
+
+
+    plt.subplots_adjust(hspace = 0.5)
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
-    fig.suptitle("Rate limitation: Large interval analysis\n {}".format(r'(Steps = 23, Iterations = 10, $t_{deadline} = 60s$)'), fontsize=10)
+    # fig.suptitle(r'Rate limitation: Critical threshold analysis \n (Steps = 4, Iterations = 4, $\alpha_i > \beta_i$)', fontsize=14)
+    fig.suptitle("Rate limitation: Critical threshold analysis\n {}".format(r'(Rate steps = 4, Loss steps = 4,  Iterations = 4, $t_{deadline} = 60s$)'), fontsize=14)
     fig.savefig(result_file, bbox_inches='tight')
+
+
 
 
 def main(ctx):
