@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from time import sleep
 import numpy as np
 
-analyzing_rates = [5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
+# analyzing_rates = [5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
+analyzing_rates = [5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
 
 # copy & paste from evaluation.py
 def run_test(ctx):
@@ -68,14 +69,9 @@ def run_test(ctx):
         kbits_normalized = []
 
         for rate in analyzing_rates:
-            ''' We need to reset the netem server and reconfigure'''
+
             print("\n------ configuring rate to: {} --------".format(rate))
-
-            shared.netem_reset(ctx, 'beta', interfaces=interfaces)
-            shared.netem_configure(
-                ctx, 'beta', interfaces=interfaces, netem_params={
-                    'rate': '{}kbit'.format(rate)})
-
+            
             clt_bytes = int(shared.calc_clt_bytes(rate))
             clt_params['-bytes'] = str(clt_bytes)
 
@@ -84,18 +80,44 @@ def run_test(ctx):
             for iteration in iterations:
                 print("\n -------- {}. iteration -------".format(iteration))
 
+                # ensures we dont get stuck in a popen.wait(deadline) deadlock
+                timeout_ctr = 0
+                timeout_ctr_limit = 10
+
+                shared.netem_reset(ctx, 'beta', interfaces=interfaces)
+
+                shared.netem_configure(
+                ctx, 'beta', interfaces=interfaces, netem_params={
+                    'rate': '{}kbit'.format(rate)})
+
+                # ensure server is running "fresh" per iter => no saved crypto cookies
+                # note: using this we cant get "ssh" debug data
+                # due to background cmd
+                # we could implement a logging routine in mapago writing to a log file on srv...
+                shared.mapago_reset(ctx, 'gamma')
+                shared.prepare_server(ctx, srv_params)
+            
+                # ensures client mapago creation does not happen before server is ready
+                sleep(5)
+
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
                 
                 msmt_results = []
 
-                while len(msmt_results) < 1:
+                while len(msmt_results) < 1 and timeout_ctr < timeout_ctr_limit:
+                    print("\nIssueing prepare_client!\n")
                     msmt_results = shared.prepare_client(ctx, clt_params)
                     
                     if len(msmt_results) < 1:
-                        print("\nClient NOT terminated! reissue until client terminates!")
+                        print("\n!!!!!!Error!!!!!! Client NOT terminated! reissue until client terminates!")
+                        timeout_ctr += 1
 
-                kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
+                if timeout_ctr >= timeout_ctr_limit:
+                    print("\nTimeout ctr limit reached! Iteration failed")
+                    kbits_iter = 0
+                else:
+                    kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
 
                 kbits_per_rate.append(kbits_iter)
 
@@ -127,6 +149,9 @@ def run_test(ctx):
         sleep(5)
         print("\n next protocol")
 
+    shared.save_raw_data(os.path.basename(__file__)[:-3], total_results)
+
+    # debug total_results = {"quic-throughput": [[5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500], [0.0, 0.0, 0.17472884612877984, 0.8701315313138502, 0.900674430137314, 0.8836232531438641, 0.9043438018408252, 0.9022970027368329, 0.9053202021144364, 0.9044266928868566, 0.9008601035756769, 0.8985781609879805, 0.8943688647685196]], "tcp-throughput": [[5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500], [0.8997701942954309, 0.8481074849558826, 0.8735907563598297, 0.8552261157967564, 0.9555107303559349, 0.9552738066492426, 0.9465471361024512, 0.9487338370074273, 0.9560421518607741, 0.9563940715030865, 0.9564988367867315, 0.9564834349293552, 0.9564825408930998]], "tcp-tls-throughput": [[5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500], [0.7524717869949266, 0.8885877242546745, 0.8625586137854138, 0.9364819720725567, 0.9365588852951474, 0.8845108963462857, 0.8741516075082751, 0.8936189013963933, 0.9208561994822891, 0.8893634715552303, 0.8918363754524067, 0.9263790318759653, 0.9150373509042751]], "udp-throughput": [[5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500], [0.9764753600864811, 0.9776803677881084, 0.9758944122037387, 0.9728942356771316, 0.9719206171999734, 0.9718542400619999, 0.9718548571432192, 0.9718562791327233, 0.9718542895185779, 0.9718536949767261, 0.9718537755667209, 0.9718533834222277, 0.9718527503029111]]}
     plot_data(total_results)
 
 
@@ -263,7 +288,9 @@ def plot_data(total_results):
 
 
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
-    fig.suptitle("Rate limitation: Large interval analysis\n {}".format(r'(Steps = 23, Iterations = 10, $t_{deadline} = 60s$)'), fontsize=10)
+    # fig.suptitle("Rate limitation: Large interval analysis\n {}".format(r'(Steps = 23, Iterations = 10, $t_{deadline} = 60s$)'), fontsize=10)
+    fig.suptitle("Measurement campaign: Rate limitation with large interval analysis\n ")
+    
     fig.savefig(result_file, bbox_inches='tight')
 
 
