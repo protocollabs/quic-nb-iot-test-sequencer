@@ -17,7 +17,6 @@ def run_test(ctx):
     supported_protocols = [
         "tcp-throughput",
         "tcp-tls-throughput",
-        # "udp-throughput",
         "quic-throughput"]
     # TODO maybe as program parameters
     
@@ -30,8 +29,7 @@ def run_test(ctx):
     analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
     '''
     print("analyzing rates: ", analyzing_rates)
-    num_iterations = 5
-
+    num_iterations = 10
 
     iterations = list(range(num_iterations))
 
@@ -59,20 +57,12 @@ def run_test(ctx):
 
     for protocol in supported_protocols:
         print("\n-------- analyzing: {} --------".format(protocol))
-        # TODO: move mapago_reset, prepare_server, netem_reset up
-        # shared.mapago_reset(ctx, 'gamma')
-        # shared.prepare_server(ctx, srv_params)
 
         x = []
         y = []
 
         for rate in analyzing_rates:
             print("\n------ configuring rate to: {} --------".format(rate))
-
-            shared.netem_reset(ctx, 'beta', interfaces=interfaces)
-            shared.netem_configure(
-                ctx, 'beta', interfaces=interfaces, netem_params={
-                    'rate': '{}kbit'.format(rate)})
 
             clt_bytes = int(shared.calc_clt_bytes(rate))
             print("\nclt sends: {} bytes".format(clt_bytes))
@@ -84,26 +74,46 @@ def run_test(ctx):
             for iteration in iterations:
                 print("\n -------- {}. iteration -------".format(iteration))
 
-                # ensure server is running per iter
+                # ensures we dont get stuck in a popen.wait(deadline) deadlock
+                timeout_ctr = 0
+                timeout_ctr_limit = 10
+
+                # reset queue at netem middlebox and configure
+                shared.netem_reset(ctx, 'beta', interfaces=interfaces)
+                
+                shared.netem_configure(
+                ctx, 'beta', interfaces=interfaces, netem_params={
+                    'rate': '{}kbit'.format(rate)})
+ 
+                # ensure server is running "fresh" per iter => no saved crypto cookies
                 # note: using this we cant get "ssh" debug data
                 # due to background cmd
                 # we could implement a logging routine in mapago writing to a log file on srv...
                 shared.mapago_reset(ctx, 'gamma')
                 shared.prepare_server(ctx, srv_params)
 
+                # ensures client mapago creation does not happen before server is ready
+                sleep(5)
 
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
                
                 msmt_results = []
 
-                while len(msmt_results) < 1:
+                while len(msmt_results) < 1 and timeout_ctr < timeout_ctr_limit:
+                    print("\nIssueing prepare_client!\n")
                     msmt_results = shared.prepare_client(ctx, clt_params)
                     
                     if len(msmt_results) < 1:
                         print("\nClient NOT terminated! reissue until client terminates!")
+                        timeout_ctr += 1
 
-                success_iter = analyze_data(msmt_results, protocol, clt_bytes)
+                if timeout_ctr >= timeout_ctr_limit:
+                    print("\nTimeout ctr limit reached! Iteration failed")
+                    success_iter = 0
+                else:
+                    success_iter = analyze_data(msmt_results, protocol, clt_bytes)
+
                 # add success_value to list
                 success_total.append(success_iter)
            
@@ -241,7 +251,7 @@ def plot_data(total_results):
     plt.gca().invert_xaxis()
     plt.grid(color='darkgray', linestyle=':')
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
-    fig.suptitle("Rate limitation: Large interval analysis\n {}".format(r'(Steps = 23, Iterations = 10, $t_{deadline} = 60s$)'), fontsize=10)
+    fig.suptitle("Rate limitation: Large interval analysis\n {}".format(r'(Steps = 7, Iterations = 5, $t_{deadline} = 60s$)'), fontsize=10)
     fig.savefig(result_file, bbox_inches='tight')
 
 def main(ctx):
