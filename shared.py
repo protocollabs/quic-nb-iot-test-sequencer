@@ -9,7 +9,7 @@ from collections import OrderedDict
 PASSWD = "yourpasswd"
 MINBYTES = 140000
 MAXBYTES = 14000000
-
+CLT_TIMEOUT = 240
 
 linestyles = OrderedDict(
     [('solid',               (0, ())),
@@ -145,21 +145,29 @@ def prepare_client(ctx, params):
         args.append(param)
         args.append(params[param])
 
+    print("Debug output: Shared / args of client {}".format(args))
+
     popen = subprocess.Popen(
         tuple(args),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
     
     try:
-        popen.wait(timeout=240)
+        print("Debug output: Shared / wait for process to terminate")
+        popen.wait(timeout=CLT_TIMEOUT)
 
     except subprocess.TimeoutExpired:
         # cleanup
+        print("Debug output: Shared / process NOT terminated. raise exception and return")
         popen.kill()
         return msmt_db
 
+    print("Debug output: Shared / process terminated. contiuning")
+
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
+
+    print("Debug output: Shared / process terminated. Right after reading stdout stderr")
 
 
     if len(output_stderr) is not 0:
@@ -168,6 +176,8 @@ def prepare_client(ctx, params):
         raise Exception('\nMapago-client return STDERR! Somethings broken!')
 
     lines_json = output_stdout.decode("utf-8")
+    # debugging 
+    print("Debug output: Shared / lines_json {}".format(lines_json))
 
     for line_json in lines_json.splitlines():
         msmt_db.append(json.loads(line_json))
@@ -282,3 +292,24 @@ def save_raw_data(msmt_name, msmt_data):
         print("File closed successfully!")
     else:
         print("file not closed")
+
+
+def calc_simulation_time(protocols, iterations, timeout_limit, tbf_param, netem_params):
+    num_protos = len(protocols)
+    num_rates = len(tbf_param)
+    num_netem_param = len(netem_params)
+    # t = #bytes / bw => currently ~120s (min_bytes = 140000 / min_bw = 10 Kbit/s etc.) 
+    iteration_dur_min = 120
+    iteration_dur_max = CLT_TIMEOUT
+
+    min_sim_time = num_protos * iterations * num_rates * num_netem_param * iteration_dur_min
+    max_sim_time = num_protos * iterations * num_rates * num_netem_param * timeout_limit * iteration_dur_max
+    min_sim_time_h = float(min_sim_time) / 3600
+    max_sim_time_h = float(max_sim_time) / 3600
+
+    return (min_sim_time_h, max_sim_time_h)
+        
+        
+
+
+
