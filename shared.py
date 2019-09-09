@@ -3,10 +3,34 @@ import paramiko
 import time
 import subprocess
 import json
+import math
+import asyncio
+import random
+from collections import OrderedDict
 
 PASSWD = "yourpasswd"
-MINBYTES = 140000
-MAXBYTES = 14000000
+MINBYTES = 300000
+MAXBYTES = 30000000
+CLT_TIMEOUT = 480
+
+
+linestyles = OrderedDict(
+    [('solid',               (0, ())),
+     ('loosely dotted',      (0, (1, 10))),
+     ('dotted',              (0, (1, 5))),
+     ('densely dotted',      (0, (1, 1))),
+
+     ('loosely dashed',      (0, (5, 10))),
+     ('dashed',              (0, (5, 5))),
+     ('densely dashed',      (0, (5, 1))),
+
+     ('loosely dashdotted',  (0, (3, 10, 1, 10))),
+     ('dashdotted',          (0, (3, 5, 1, 5))),
+     ('densely dashdotted',  (0, (3, 1, 1, 1))),
+
+     ('loosely dashdotdotted', (0, (3, 10, 1, 10, 1, 10))),
+     ('dashdotdotted',         (0, (3, 5, 1, 5, 1, 5))),
+     ('densely dashdotdotted', (0, (3, 1, 1, 1, 1, 1)))])
 
 def prepare_mapago(ctx):
     print("Preparing mapago")
@@ -36,6 +60,8 @@ def netem_configure(
         # 1. configure rate with tbf qdisc
         tbf_cmd = 'sudo tc qdisc add dev {} root handle {} tbf rate {} burst {} limit {}'.format(
             interface, qdisc_id, netem_params['rate'], '1540', '1540000')
+
+
         netem_cmd = 'sudo tc qdisc add dev {} parent {}: handle {} netem'.format(
             interface, qdisc_id, qdisc_id + 1)
 
@@ -46,10 +72,17 @@ def netem_configure(
             elif param == 'loss':
                 netem_used = True
                 netem_cmd += " loss {}%".format(netem_params[param])
+            elif param == 'simpleGilbertLoss':
+                netem_used = True
+                netem_cmd += " loss gemodel {}".format(netem_params[param])
             elif param == 'delay':
                 netem_used = True
                 netem_cmd += " delay {}ms".format(netem_params[param])
                 ### check for future params ###
+            elif param == 'delay+jitter':
+                netem_used = True
+                netem_cmd += " delay {}".format(netem_params[param])
+
             else:
                 raise Exception('\nParam {} not supported!'.format(param))
 
@@ -124,14 +157,30 @@ def prepare_client(ctx, params):
         args.append(param)
         args.append(params[param])
 
-    print("\nargs of client", args)
+    print("Debug output: Shared / args of client {}".format(args))
+
     popen = subprocess.Popen(
         tuple(args),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
-    popen.wait()
+    
+    try:
+        print("Debug output: Shared / wait for process to terminate")
+        popen.wait(timeout=CLT_TIMEOUT)
+
+    except subprocess.TimeoutExpired:
+        # cleanup
+        print("Debug output: Shared / process NOT terminated. raise exception and return")
+        popen.kill()
+        return msmt_db
+
+    print("Debug output: Shared / process terminated. contiuning")
+
     output_stdout = popen.stdout.read()
     output_stderr = popen.stderr.read()
+
+    print("Debug output: Shared / process terminated. Right after reading stdout stderr")
+
 
     if len(output_stderr) is not 0:
         # debugging
@@ -139,8 +188,6 @@ def prepare_client(ctx, params):
         raise Exception('\nMapago-client return STDERR! Somethings broken!')
 
     lines_json = output_stdout.decode("utf-8")
-    # debugging 
-    print(lines_json)
 
     for line_json in lines_json.splitlines():
         msmt_db.append(json.loads(line_json))
@@ -150,6 +197,87 @@ def prepare_client(ctx, params):
 
     return msmt_db
 
+async def aprepare_client(ctx, params):
+    args = []
+    msmt_db = []
+    cmd_str = os.environ['GOBIN'] + '/mapago-client'
+
+    args.append(cmd_str)
+
+    for param in params:
+        args.append(param)
+        args.append(params[param])
+
+    cmd = ' '.join(args)
+    print("cmd is: ", cmd)
+
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
+
+    stdout, stderr = await proc.communicate()
+
+    if stdout:
+        print("\n\nstdout is: ", stdout.decode())
+    if stderr:
+        print("\n\nstdout is: ", stderr.decode())
+
+    if len(stderr) is not 0:
+        print(stderr)
+        raise Exception('\nMapago-client return STDERR! Somethings broken!')
+
+    lines_json = stdout.decode("utf-8")
+
+    for line_json in lines_json.splitlines():
+        msmt_db.append(json.loads(line_json))
+
+    if len(msmt_db) < 1:
+        raise Exception('\nWe need at least 1 msmt point')
+
+    return msmt_db
+
+async def rand_aprepare_client(ctx, params):
+    args = []
+    msmt_db = []
+    cmd_str = os.environ['GOBIN'] + '/mapago-client'
+
+    args.append(cmd_str)
+
+    for param in params:
+        args.append(param)
+        args.append(params[param])
+
+    cmd = ' '.join(args)
+
+    sleep_time = random.uniform(0.0, 0.01)
+    await asyncio.sleep(sleep_time)
+
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
+
+    stdout, stderr = await proc.communicate()
+
+    if stdout:
+        print("\ncorresponding cmd: ", cmd)
+    if stderr:
+        pass
+
+    if len(stderr) is not 0:
+        print(stderr)
+        raise Exception('\nMapago-client return STDERR! Somethings broken!')
+
+    lines_json = stdout.decode("utf-8")
+
+    for line_json in lines_json.splitlines():
+        msmt_db.append(json.loads(line_json))
+
+    if len(msmt_db) < 1:
+        raise Exception('\nWe need at least 1 msmt point')
+
+    return msmt_db
 
 def host_alive(ctx, hostname):
     print("\nChecking host {} with addr {}".format(
@@ -235,3 +363,43 @@ def calc_clt_bytes(current_rate):
     current_kbits = clt_min_kbits + ((clt_max_kbits - clt_min_kbits) / (clt_max_kbits_s - clt_min_kbits_s)) * (current_rate - clt_min_kbits_s)
     current_bytes = current_kbits * (10**3) / 8
     return current_bytes
+
+def round_xticks(xtick):
+    return int(math.ceil(xtick / 10.0)) * 10
+
+def save_raw_data(msmt_name, msmt_data):
+    path = "./data/" + msmt_name
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    raw_result_file = path + "/" + msmt_name + ".txt"
+
+    with open(raw_result_file, 'a') as f:
+        data = json.dumps(msmt_data)
+        f.write(data)
+        
+    if f.closed is True:
+        print("File closed successfully!")
+    else:
+        print("file not closed")
+
+
+def calc_simulation_time(protocols, iterations, timeout_limit, tbf_param, netem_params):
+    num_protos = len(protocols)
+    num_rates = len(tbf_param)
+    num_netem_param = len(netem_params)
+    iteration_dur_min = 240
+    iteration_dur_max = CLT_TIMEOUT
+
+    if len(netem_params) > 0:
+        max_sim_time = num_protos * iterations * num_rates * num_netem_param * timeout_limit * iteration_dur_max
+        min_sim_time = num_protos * iterations * num_rates * num_netem_param * iteration_dur_min
+    else:
+        max_sim_time = num_protos * iterations * num_rates * timeout_limit * iteration_dur_max
+        min_sim_time = num_protos * iterations * num_rates * iteration_dur_min
+
+    min_sim_time_h = float(min_sim_time) / 3600
+    max_sim_time_h = float(max_sim_time) / 3600
+
+    return (min_sim_time_h, max_sim_time_h)
