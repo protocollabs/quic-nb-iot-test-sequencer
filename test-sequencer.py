@@ -10,8 +10,24 @@ from tests import throughput_limited
 from tests import throughput_limited_critical
 from tests import reachability_rate
 from tests import goodput_loss
+from tests import goodput_delay
+from tests import goodput_delay_critical
+from tests import goodput_jitter
+from tests import goodput_jitter_critical
+from tests import goodput_advanced_loss_mean_per
+from tests import goodput_advanced_loss_two_bursts_heat
+from tests import intra_fairness_rate
+from tests import intra_fairness_rate_rand_sleep
+from tests import intra_fairness_rate_tcp
+from tests import intra_fairness_rate_bar_plot
+from tests import goodput_loss_bar_plot
+from tests import goodput_advanced_loss_bar_plot
+from tests import inter_fairness_rate
+from tests import inter_fairness_rate_rand_sleep
+
 
 CONFIG_NAME = 'network.conf'
+
 
 def update_software(ctx):
     print("Dummy Func to update software on Mapago topology")
@@ -76,11 +92,41 @@ def main():
     elif args.testcase == "throughput_limited":
         throughput_limited.main(ctx)
     elif args.testcase == "throughput_limited_critical":
-        throughput_limited_critical.main(ctx)    
+        throughput_limited_critical.main(ctx)
     elif args.testcase == "reachability_rate":
         reachability_rate.main(ctx)
     elif args.testcase == "goodput_loss":
-        goodput_loss.main(ctx)    
+        goodput_loss.main(ctx)
+    elif args.testcase == "goodput_delay":
+        goodput_delay.main(ctx)
+    elif args.testcase == "goodput_delay_critical":
+        goodput_delay_critical.main(ctx)
+    elif args.testcase == "goodput_jitter":
+        goodput_jitter.main(ctx)
+    elif args.testcase == "goodput_jitter_critical":
+        goodput_jitter_critical.main(ctx)
+    elif args.testcase == "goodput_advanced_loss_mean_per":
+        goodput_advanced_loss_mean_per.main(ctx)
+    elif args.testcase == "goodput_advanced_loss_two_bursts_heat":
+        goodput_advanced_loss_two_bursts_heat.main(ctx)
+    elif args.testcase == "intra_fairness_rate":
+        intra_fairness_rate.main(ctx)
+    elif args.testcase == "intra_fairness_rate_rand_sleep":
+        intra_fairness_rate_rand_sleep.main(ctx)
+    elif args.testcase == "intra_fairness_rate_tcp":
+        intra_fairness_rate_tcp.main(ctx)
+    elif args.testcase == "intra_fairness_rate_bar_plot":
+        intra_fairness_rate_bar_plot.main(ctx)
+    elif args.testcase == "goodput_loss_bar_plot":
+        goodput_loss_bar_plot.main(ctx)
+    elif args.testcase == "goodput_advanced_loss_bar_plot":
+        goodput_advanced_loss_bar_plot.main(ctx)
+    elif args.testcase == "inter_fairness_rate_rand_sleep":
+        inter_fairness_rate_rand_sleep.main(ctx)
+    elif args.testcase == "inter_fairness_rate":
+        inter_fairness_rate.main(ctx)
+    elif args.testcase == "goodput_delay_playground":
+        goodput_delay_playground.main(ctx)
     else:
         raise Exception('\nunknown testcase!')
 
