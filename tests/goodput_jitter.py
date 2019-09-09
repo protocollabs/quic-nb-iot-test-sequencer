@@ -6,13 +6,12 @@ from time import sleep
 import numpy as np
 
 analyzing_rates = [5, 50, 250, 500]
-analyzing_delay = [0, 10, 50, 250, 1000]
-# analyzing_delay = [1000, 10000, 20000]
-
+analyzing_delay = [0, 10, 50, 250, 1000, 10000]
+jitter_ratio = 50
 yticks_list = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+xticks_list = [0, 250, 1000, 10000]
 
 
-# copy & paste from evaluation.py
 def run_test(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
@@ -24,6 +23,9 @@ def run_test(ctx):
         "tcp-tls-throughput",
         "quic-throughput"
     ]
+
+    print("rate: ", analyzing_rates)
+    print("delay: ", analyzing_delay)
 
     num_iterations = 10
     timeout_ctr_limit = 3
@@ -81,10 +83,13 @@ def run_test(ctx):
 
             # 4. deepest for loop: iterate over delay
             for delay in analyzing_delay:
-                print("\n------ configuring delay to: {} --------".format(delay))
-
                 # holds results of ALL iters per single delay and rate tuple
                 kbits_per_delay = []
+                jitter = (float(delay) / 100) * jitter_ratio
+                print("\nsetting jitter to: ", jitter)
+
+                print(
+                    "\n------ configuring delay and jitter to: {}, {} --------".format(delay, jitter))
 
                 for iteration in iterations:
                     print("\n -------- {}. iteration -------".format(iteration))
@@ -98,7 +103,7 @@ def run_test(ctx):
                     # 5. we know everything: so configure!
                     shared.netem_configure(
                         ctx, 'beta', interfaces=interfaces, netem_params={
-                            'rate': '{}kbit'.format(rate), 'delay': '{}'.format(delay)})
+                            'rate': '{}kbit'.format(rate), 'delay+jitter': '{}ms {}ms'.format(delay, jitter)})
 
                     # ensure server is running "fresh" per iter => no saved crypto cookies
                     # note: using this we cant get "ssh" debug data
@@ -184,7 +189,7 @@ def run_test(ctx):
     - These results were obtained in the context of the measurement
     - Used this line for verifying the result
 
-    total_goodput_rate_avg = {"tcp-throughput": [[5, 50, 250, 500], [[0, 10, 50, 250], [0, 10, 50, 250], [0, 10, 50, 250], [0, 10, 50, 250]], [[0.8987872192411489, 0.7823267454919813, 0.8717731267708974, 0.9449281470690319], [0.8914808616112653, 0.9393961996215485, 0.9553501262186983, 0.9014234459920567], [0.9502326564667469, 0.9542850021635289, 0.9561571123219293, 0.9509310693945888], [0.9563853871451465, 0.9563302765309082, 0.9564144806993923, 0.9553549476575104]]], "tcp-tls-throughput": [[5, 50, 250, 500], [[0, 10, 50, 250], [0, 10, 50, 250], [0, 10, 50, 250], [0, 10, 50, 250]], [[0.7915266722574326, 0.7601227070334426, 0.7381980505336566, 0.8927837899522644], [0.915011005190392, 0.9349899435998139, 0.7538226523850817, 0.7739993436101752], [0.8963259250550947, 0.9095146161880139, 0.9074419480214088, 0.8893709701924917], [0.9146203613669235, 0.9309780058311868, 0.8878567577638666, 0.8991129060391729]]], "quic-throughput": [[5, 50, 250, 500], [[0, 10, 50, 250], [0, 10, 50, 250], [0, 10, 50, 250], [0, 10, 50, 250]], [[0.0, 0.0, 0.0, 0.0], [0.3006895781631222, 0.13806085691509123, 0.30098765980594716, 0.44843030517187144], [0.9044825487791093, 0.8881095657532313, 0.901846031337234, 0.8991592469774472], [0.9027135581514798, 0.9059463999240039, 0.9052832465014307, 0.8994225971623447]]]}
+    total_goodput_rate_avg = {"quic-throughput": [[5, 50, 250, 500], [[0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000]], [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.80161227838563056, 0.8040652428144947, 0.8041416107786962, 0.7940765487525084, 0.7444791929425141, 0.0], [0.8949120673581473, 0.8681223437939265, 0.8227633821170063, 0.0, 0.0, 0.0], [0.9020158717586202, 0.8678721881786707, 0.7935316913337243, 0.0, 0.0, 0.0]]], "tcp-throughput": [[5, 50, 250, 500], [[0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000]], [[0.8947504090914252, 0.6525793098184648, 0.7649036420047517, 0.8389996637955015, 0.7478415226187547, 0.4889345563833384], [0.9368367623192994, 0.7945618978868387, 0.8481709831094519, 0.8196944154301594, 0.622114906545979, 0.18108507164912754], [0.9544446957447422, 0.9316989097856575, 0.924426515051143, 0.8985641638385886, 0.8391914638969366, 0.0], [0.9563714427147644, 0.9561166758797403, 0.954858844154299, 0.9530127448208954, 0.8657837061661853, 0.0]]], "tcp-tls-throughput": [[5, 50, 250, 500], [[0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000], [0, 10, 50, 250, 1000, 10000]], [[0.905965133648742, 0.625319284545624, 0.6197808646068161, 0.7395122680163873, 0.7086336896330845, 0.48219699140931727], [0.7789134555766118, 0.7740938538514139, 0.9094230363344891, 0.6078073032754268, 0.6734109346990803, 0.18402407325358308], [0.920490309867192, 0.7166749984938212, 0.7119296816954054, 0.8449847624341839, 0.7851837084388277, 0.0], [0.8985949229726562, 0.8379584627409254, 0.7977987060452126, 0.7697167567685701, 0.7220478414231848, 0.0]]]}
     '''
 
     plot_data(total_goodput_rate_avg)
@@ -303,8 +308,8 @@ def plot_data(gp_avg):
              linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
 
     plt.ylabel('Goodput/rate [%]')
-    plt.xlabel('delay [ms]', labelpad=0)
-    plt.xticks(first_rate_delay_values)
+    plt.xlabel('mean delay [ms]', labelpad=0)
+    plt.xticks(xticks_list)
     plt.yticks(yticks_list)
     plt.legend()
     plt.grid(color='darkgray', linestyle=':')
@@ -313,25 +318,16 @@ def plot_data(gp_avg):
     ax = plt.gca()
     ax.set_facecolor('white')
     plt.setp(ax.spines.values(), color='black')
-
-    legend = plt.legend(loc="best", bbox_to_anchor=(0.58, 0.7))
+    legend = plt.legend()
     legend_frame = legend.get_frame()
     legend_frame.set_facecolor('white')
 
-    plt.arrow(250.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(600 UEs, Suburban)', xy=(250.0, 0.35),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(50.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(200 UEs, Urban)', xy=(55.0, 0.35),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(10.0, 0.8, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('LTE-M \n(200 UEs, Urban)', xy=(10.0, 0.5),
-                 ha='center', fontsize=10, color="#e41a1c")
+    plt.arrow(250.00, 0.5, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 1")
+    plt.text(0.0, 0.4, 'NB-IoT 1)', fontsize=10, color="#e41a1c")
+    plt.arrow(1000.00, 0.3, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 3")
+    plt.text(650.0, 0.2, 'NB-IoT 2)', fontsize=10, color="#e41a1c")
 
     plt.subplot(412)
 
@@ -343,8 +339,8 @@ def plot_data(gp_avg):
              linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
 
     plt.ylabel('Goodput/rate [%]')
-    plt.xlabel('delay [ms]', labelpad=0)
-    plt.xticks(first_rate_delay_values)
+    plt.xlabel('mean delay [ms]', labelpad=0)
+    plt.xticks(xticks_list)
     plt.yticks(yticks_list)
     plt.legend()
     plt.grid(color='darkgray', linestyle=':')
@@ -353,25 +349,16 @@ def plot_data(gp_avg):
     ax = plt.gca()
     ax.set_facecolor('white')
     plt.setp(ax.spines.values(), color='black')
-
-    legend = plt.legend(loc="best", bbox_to_anchor=(0.58, 0.7))
+    legend = plt.legend()
     legend_frame = legend.get_frame()
     legend_frame.set_facecolor('white')
 
-    plt.arrow(250.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(600 UEs, Suburban)', xy=(250.0, 0.35),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(50.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(200 UEs, Urban)', xy=(55.0, 0.35),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(10.0, 0.8, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('LTE-M \n(200 UEs, Urban)', xy=(10.0, 0.5),
-                 ha='center', fontsize=10, color="#e41a1c")
+    plt.arrow(250.00, 0.5, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 1")
+    plt.text(0.0, 0.4, 'NB-IoT 1)', fontsize=10, color="#e41a1c")
+    plt.arrow(1000.00, 0.3, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 3")
+    plt.text(650.0, 0.2, 'NB-IoT 2)', fontsize=10, color="#e41a1c")
 
     plt.subplot(413)
 
@@ -383,8 +370,8 @@ def plot_data(gp_avg):
              linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
 
     plt.ylabel('Goodput/rate [%]')
-    plt.xlabel('delay [ms]', labelpad=0)
-    plt.xticks(first_rate_delay_values)
+    plt.xlabel('mean delay [ms]', labelpad=0)
+    plt.xticks(xticks_list)
     plt.yticks(yticks_list)
     plt.legend()
     plt.grid(color='darkgray', linestyle=':')
@@ -393,25 +380,16 @@ def plot_data(gp_avg):
     ax = plt.gca()
     ax.set_facecolor('white')
     plt.setp(ax.spines.values(), color='black')
-
-    legend = plt.legend(loc="best", bbox_to_anchor=(0.58, 0.7))
+    legend = plt.legend()
     legend_frame = legend.get_frame()
     legend_frame.set_facecolor('white')
 
-    plt.arrow(250.0, 0.3, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(600 UEs, Suburban)', xy=(250.0, 0.1),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(50.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(200 UEs, Urban)', xy=(55.0, 0.35),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(10.0, 0.8, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('LTE-M \n(200 UEs, Urban)', xy=(10.0, 0.5),
-                 ha='center', fontsize=10, color="#e41a1c")
+    plt.arrow(250.00, 0.3, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 1")
+    plt.text(0.0, 0.2, 'NB-IoT 1)', fontsize=10, color="#e41a1c")
+    plt.arrow(1000.00, 0.1, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 3")
+    plt.text(650.0, 0.0, 'NB-IoT 2)', fontsize=10, color="#e41a1c")
 
     plt.subplot(414)
 
@@ -423,8 +401,8 @@ def plot_data(gp_avg):
              linestyle=shared.linestyles['densely dashdotted'], marker='s', markersize=4, color='#ff7f00', label="QUIC")
 
     plt.ylabel('Goodput/rate [%]')
-    plt.xlabel('delay [ms]', labelpad=0)
-    plt.xticks(first_rate_delay_values)
+    plt.xlabel('mean delay [ms]', labelpad=0)
+    plt.xticks(xticks_list)
     plt.yticks(yticks_list)
     plt.legend()
     plt.grid(color='darkgray', linestyle=':')
@@ -434,30 +412,22 @@ def plot_data(gp_avg):
     ax.set_facecolor('white')
     plt.setp(ax.spines.values(), color='black')
 
-    legend = plt.legend(loc="best", bbox_to_anchor=(0.58, 0.7))
+    legend = plt.legend(loc="center", bbox_to_anchor=(0.30, 0.35))
     legend_frame = legend.get_frame()
     legend_frame.set_facecolor('white')
 
-    plt.arrow(250.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(600 UEs, Suburban)', xy=(250.0, 0.35),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(50.0, 0.5, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('NB-IoT \n(200 UEs, Urban)', xy=(55.0, 0.25),
-                 ha='center', fontsize=10, color="#e41a1c")
-
-    plt.arrow(10.0, 0.6, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
-              head_width=3, head_length=0.1, label="NB-IoT 1")
-    plt.annotate('LTE-M \n(200 UEs, Urban)', xy=(10.0, 0.4),
-                 ha='center', fontsize=10, color="#e41a1c")
+    plt.arrow(250.00, 0.5, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 1")
+    plt.text(0.0, 0.4, 'NB-IoT 1)', fontsize=10, color="#e41a1c")
+    plt.arrow(1000.00, 0.3, 0.0, 0.05, fc="#e41a1c", ec="#e41a1c",
+              head_width=80, head_length=0.1, label="NB-IoT 3")
+    plt.text(650.0, 0.2, 'NB-IoT 2)', fontsize=10, color="#e41a1c")
 
     plt.subplots_adjust(hspace=0.5)
 
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
     # fig.suptitle("Measurement campaign: Delay analysis \n {}".format(r'(Rate steps = 4, Delay steps = 6,  Iterations = 4, $t_{deadline} = 60s$)'), fontsize=14)
-    #fig.suptitle("Impact of Delay: Microscopic analysis\n")
+    # fig.suptitle("Impact of Jitter (50%): Macroscopic analysis\n")
     fig.savefig(result_file, bbox_inches='tight')
 
 
