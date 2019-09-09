@@ -5,13 +5,10 @@ import matplotlib.pyplot as plt
 from time import sleep
 import numpy as np
 
-#analyzing_rates = [2, 5, 10, 15, 20, 25, 30, 40, 50]
 analyzing_rates = [2, 5, 10, 15, 20, 25, 30]
 yticks_list = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 
 
-
-# copy & paste from evaluation.py
 def run_test(ctx):
     print('running test: {}'.format(os.path.basename(__file__)[:-3]))
     remoteHosts = ['beta', 'gamma']
@@ -21,16 +18,7 @@ def run_test(ctx):
     supported_protocols = [
         "tcp-throughput",
         "tcp-tls-throughput",
-        "quic-throughput"
-        ]
-    
-    '''
-    use: start, stop interval or predefined msmt points 
-    start_rate = 2
-    stop_rate = 60
-    step_rate = 2
-    analyzing_rates = list(range(start_rate, stop_rate + step_rate, step_rate))
-    '''
+        "quic-throughput"]
 
     print("rate: ", analyzing_rates)
     num_iterations = 10
@@ -66,7 +54,7 @@ def run_test(ctx):
 
     for protocol in supported_protocols:
         print("\n-------- analyzing: {} --------".format(protocol))
-        
+
         x = []
         # goodput_rate_avg
         goodput_rate_avg = []
@@ -100,9 +88,9 @@ def run_test(ctx):
 
                 shared.netem_reset(ctx, 'beta', interfaces=interfaces)
                 shared.netem_configure(
-                ctx, 'beta', interfaces=interfaces, netem_params={
-                    'rate': '{}kbit'.format(rate)})
-            
+                    ctx, 'beta', interfaces=interfaces, netem_params={
+                        'rate': '{}kbit'.format(rate)})
+
                 # ensure server is running "fresh" per iter => no saved crypto cookies
                 # note: using this we cant get "ssh" debug data
                 # due to background cmd
@@ -115,15 +103,16 @@ def run_test(ctx):
 
                 clt_params['-module'] = '{}'.format(protocol)
                 print("\n starting module: {}".format(clt_params['-module']))
-                
+
                 msmt_results = []
 
                 while len(msmt_results) < 1 and timeout_ctr < timeout_ctr_limit:
                     print("\nIssueing prepare_client!\n")
                     msmt_results = shared.prepare_client(ctx, clt_params)
-                    
+
                     if len(msmt_results) < 1:
-                        print("\n!!!!!!Error!!!!!! Client NOT terminated! reissue until client terminates!")
+                        print(
+                            "\n!!!!!!Error!!!!!! Client NOT terminated! reissue until client terminates!")
                         timeout_ctr += 1
 
                 # debug print("Debug output: Throughput_critical / msmt_results {}".format(msmt_results))
@@ -131,7 +120,8 @@ def run_test(ctx):
                     print("\nTimeout ctr limit reached! Iteration failed")
                     kbits_iter = 0
                 else:
-                    kbits_iter = analyze_data(msmt_results, protocol, clt_bytes)
+                    kbits_iter = analyze_data(
+                        msmt_results, protocol, clt_bytes)
 
                 # 1. used to calculate AVG
                 kbits_per_rate.append(kbits_iter)
@@ -199,13 +189,25 @@ def run_test(ctx):
         sleep(5)
         print("\n next protocol")
 
-
     # plot_data(goodput_rate_avg, goodput_rate_max, goodput_rate_min)
-    shared.save_raw_data(os.path.basename(__file__)[:-3], total_goodput_rate_avg)
-    shared.save_raw_data(os.path.basename(__file__)[:-3], total_goodput_rate_max)
-    shared.save_raw_data(os.path.basename(__file__)[:-3], total_goodput_rate_min)
-    
-    plot_data(total_goodput_rate_avg, total_goodput_rate_max, total_goodput_rate_min)
+    shared.save_raw_data(os.path.basename(__file__)[
+                         :-3], total_goodput_rate_avg)
+    shared.save_raw_data(os.path.basename(__file__)[
+                         :-3], total_goodput_rate_max)
+    shared.save_raw_data(os.path.basename(__file__)[
+                         :-3], total_goodput_rate_min)
+
+    '''
+    QUIC thesis results:
+    - These results were obtained in the context of the measurement
+    - Used this line for verifying the result
+
+    total_goodput_rate_avg = {"tcp-tls-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.7186825957845191, 0.8932157611588828, 0.6142883147484908, 0.8045267518836788, 0.8655885974573809, 0.8394469967342978, 0.8797297303945656]], "quic-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.0, 0.0, 0.0, 0.522877412171877, 0.25292588532657634, 0.7711127312597503, 0.823867531780582]], "tcp-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.7672585409263191, 0.8088174144187545, 0.748441507650644, 0.8224449735488463, 0.9519106591951555, 0.9216265351742691, 0.9262570230098345]]}
+    total_goodput_rate_max = {"tcp-tls-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.917836572986393, 0.8991376812040397, 0.9167717297982965, 0.924438219306823, 0.9323932711275507, 0.9333336288889825, 0.9340772168608876]], "quic-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.0, 0.0, 0.0, 0.8750718105804558, 0.8792202503326887, 0.8877729019845608, 0.8906314304881492]], "tcp-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.7958230997232995, 0.906555460371729, 0.9385343229585598, 0.9447708712159038, 0.9530005242779224, 0.9537388786595662, 0.9540895190165545]]}
+    total_goodput_rate_min = {"tcp-tls-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.0, 0.8904898978492799, 0.0, 0.0, 0.7120009088183029, 0.0, 0.7214568248833293]], "quic-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.78]], "tcp-throughput": [[2, 5, 10, 15, 20, 25, 30], [0.6964525103179906, 0.0, 0.0, 0.0, 0.9500101358447484, 0.6399255784835811, 0.6825403574382192]]}
+    '''
+    plot_data(total_goodput_rate_avg,
+              total_goodput_rate_max, total_goodput_rate_min)
 
 
 def analyze_data(msmt_results, protocol, clt_bytes):
@@ -268,7 +270,6 @@ def analyze_data(msmt_results, protocol, clt_bytes):
         print("\n timestamps identical. no data transmitted")
         return 0
 
-
     bytes_sec = bytes_rx / measurement_length
     Mbits_sec = (bytes_sec * 8) / 10**6
     Kbits_sec = (bytes_sec * 8) / 10**3
@@ -291,7 +292,6 @@ def analyze_data(msmt_results, protocol, clt_bytes):
     return Kbits_sec
 
 
-
 def plot_data(gp_avg, gp_max, gp_min):
     tcp_rate = gp_avg["tcp-throughput"][0]
     tcp_avg = gp_avg["tcp-throughput"][1]
@@ -308,15 +308,15 @@ def plot_data(gp_avg, gp_max, gp_min):
     quic_max = gp_max["quic-throughput"][1]
     quic_min = gp_min["quic-throughput"][1]
 
-
     fig = plt.figure(figsize=(11, 9))
     # fig = plt.figure(figsize=(13, 11))
 
+    ay1 = plt.subplot(311)
 
-    ay1 = plt.subplot(311) 
-
-    plt.plot(tcp_rate, tcp_avg, linestyle='-', marker='v', color='#377eb8', label="Average")
-    plt.fill_between(tcp_rate, tcp_min, tcp_max, facecolor='#377eb8', alpha=0.1, label='Range')
+    plt.plot(tcp_rate, tcp_avg, linestyle='-',
+             marker='v', color='#377eb8', label="Average")
+    plt.fill_between(tcp_rate, tcp_min, tcp_max,
+                     facecolor='#377eb8', alpha=0.25, label='Range')
 
     plt.ylabel('Goodput/rate [%]')
     plt.xlabel('rate [KBit/s]', labelpad=0)
@@ -327,10 +327,16 @@ def plot_data(gp_avg, gp_max, gp_min):
     plt.grid(color='darkgray', linestyle=':')
     plt.title('TCP')
 
-    plt.subplot(312, sharey=ay1) 
+    ax = plt.gca()
+    ax.set_facecolor('white')
+    plt.setp(ax.spines.values(), color='black')
 
-    plt.plot(tls_rate, tls_avg, linestyle='-', marker='v', color='#377eb8', label="Average")
-    plt.fill_between(tls_rate, tls_min, tls_max, facecolor='#377eb8', alpha=0.1, label='Range')
+    plt.subplot(312, sharey=ay1)
+
+    plt.plot(tls_rate, tls_avg, linestyle='-',
+             marker='v', color='#377eb8', label="Average")
+    plt.fill_between(tls_rate, tls_min, tls_max,
+                     facecolor='#377eb8', alpha=0.25, label='Range')
 
     plt.ylabel('Goodput/rate [%]')
     plt.xlabel('rate [KBit/s]', labelpad=0)
@@ -341,10 +347,16 @@ def plot_data(gp_avg, gp_max, gp_min):
     plt.grid(color='darkgray', linestyle=':')
     plt.title('TCP/TLS')
 
+    ax = plt.gca()
+    ax.set_facecolor('white')
+    plt.setp(ax.spines.values(), color='black')
+
     plt.subplot(313, sharey=ay1)
 
-    plt.plot(quic_rate, quic_avg, linestyle='-', marker='v', color='#377eb8', label="Average")
-    plt.fill_between(quic_rate, quic_min, quic_max, facecolor='#377eb8', alpha=0.1, label='Range')
+    plt.plot(quic_rate, quic_avg, linestyle='-',
+             marker='v', color='#377eb8', label="Average")
+    plt.fill_between(quic_rate, quic_min, quic_max,
+                     facecolor='#377eb8', alpha=0.25, label='Range')
 
     plt.ylabel('Goodput/rate [%]')
     plt.xlabel('rate [KBit/s]', labelpad=0)
@@ -355,12 +367,15 @@ def plot_data(gp_avg, gp_max, gp_min):
     plt.grid(color='darkgray', linestyle=':')
     plt.title('QUIC')
 
+    ax = plt.gca()
+    ax.set_facecolor('white')
+    plt.setp(ax.spines.values(), color='black')
 
-    plt.subplots_adjust(hspace = 0.5)
+    plt.subplots_adjust(hspace=0.5)
     result_file = shared.prepare_result(os.path.basename(__file__)[:-3])
     #fig.suptitle("Measurement campaign: Rate limitation with critical threshold analysis\n {}".format(r'(Steps = 10, Iterations = 10, $t_{deadline} = 60s$)'), fontsize=14)
-    fig.suptitle("Measurement campaign: Rate limitation with critical threshold analysis\n ")
     fig.savefig(result_file, bbox_inches='tight')
-    
+
+
 def main(ctx):
     run_test(ctx)
